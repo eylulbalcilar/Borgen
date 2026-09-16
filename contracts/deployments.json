@@ -1,0 +1,8 @@
+{
+  "84532": {
+    "network": "base-sepolia",
+    "MockStablecoin": "0x7936Fca300Cb1Cd11260E010f484655893af38fb",
+    "CollateralNFT": "0x1723AFC405269744e750bEd61544963506A06f9C",
+    "LendingPool": "0x95ffF8cC64aE1411B4D29238d35a908d02A2F802"
+  }
+}
