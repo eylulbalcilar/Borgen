@@ -186,3 +186,35 @@ export async function waitForState(
   }
   throw new Error(`Contract ${contractId} is still ${state} after ${attempts} attempts`);
 }
+
+// ---------- Contract readers ----------
+
+// Neuro converts XML to JSON: a repeated element becomes an array,
+// a single element becomes a plain object. Normalise both to an array.
+function asArray<T>(value: T | T[] | undefined): T[] {
+  if (value === undefined) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+type NamedValue = { name: string; value: string };
+type Part = { role: string; legalId: string };
+
+// Returns contract parameters as { name: value }.
+export function readParameters(contract: NeuroContract): Record<string, string> {
+  const params = contract.parameters as { stringParameter?: NamedValue | NamedValue[] } | undefined;
+  const result: Record<string, string> = {};
+  for (const p of asArray(params?.stringParameter)) {
+    result[p.name] = p.value;
+  }
+  return result;
+}
+
+// Returns the legal id assigned to each role as { role: legalId }.
+export function readParts(contract: NeuroContract): Record<string, string> {
+  const parts = contract.parts as { part?: Part | Part[] } | undefined;
+  const result: Record<string, string> = {};
+  for (const p of asArray(parts?.part)) {
+    result[p.role] = p.legalId;
+  }
+  return result;
+}
