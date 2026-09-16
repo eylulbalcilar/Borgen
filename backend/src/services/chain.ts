@@ -92,3 +92,32 @@ export async function mintCollateral(
 
   return { tokenId: event.args.tokenId, txHash };
 }
+
+// ---------- LendingPool events ----------
+
+export const lendingPoolEvents = parseAbi([
+  "event Deposited(address indexed lender, uint256 amount, uint256 shares)",
+  "event Withdrawn(address indexed lender, uint256 amount, uint256 shares)",
+  "event Borrowed(uint256 indexed tokenId, address indexed borrower, uint256 amount, uint64 dueAt)",
+  "event Repaid(uint256 indexed tokenId, address indexed borrower, uint256 debt)",
+  "event Liquidated(uint256 indexed tokenId, address indexed liquidator, uint256 debt)",
+]);
+
+export async function getLatestBlock(): Promise<bigint> {
+  return getClients().publicClient.getBlockNumber();
+}
+
+// Returns decoded LendingPool events in an inclusive block range.
+export async function getPoolLogs(fromBlock: bigint, toBlock: bigint) {
+  const { publicClient } = getClients();
+  return publicClient.getLogs({
+    address: requireEnv("LENDING_POOL_ADDRESS") as Address,
+    events: lendingPoolEvents,
+    // Drops logs that do not match the ABI, so every returned arg is defined.
+    strict: true,
+    fromBlock,
+    toBlock,
+  });
+}
+
+export type PoolLog = Awaited<ReturnType<typeof getPoolLogs>>[number];

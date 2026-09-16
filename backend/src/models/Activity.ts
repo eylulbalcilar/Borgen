@@ -12,6 +12,7 @@ export const ACTIVITY_TYPES = [
   "repaid",
   "liquidated",
 ] as const;
+export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
 const activitySchema = new Schema(
   {
@@ -21,6 +22,8 @@ const activitySchema = new Schema(
     tokenId: { type: String },
     txHash: { type: String },
     metadata: { type: Schema.Types.Mixed },
+    // "txHash:logIndex" for events read from the chain; prevents duplicates.
+    eventId: { type: String, unique: true, sparse: true },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );
