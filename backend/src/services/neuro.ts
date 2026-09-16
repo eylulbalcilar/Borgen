@@ -157,3 +157,32 @@ export async function signContract(account: NeuroAccount, contractId: string, ro
     requestSignature,
   });
 }
+
+// ---------- Helpers ----------
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// States after which a contract can never become usable.
+const FAILED_STATES = ["Rejected", "Failed", "Obsoleted", "Deleted"];
+
+// Neuro processes approvals and signatures asynchronously, and passes through
+// intermediate states (e.g. Approved -> BeingSigned -> Signed).
+// Polls until the contract reaches one of `targetStates`.
+export async function waitForState(
+  account: NeuroAccount,
+  contractId: string,
+  targetStates: string[],
+  { attempts = 20, intervalMs = 2000 } = {},
+): Promise<NeuroContract> {
+  let state = "";
+  for (let i = 0; i < attempts; i++) {
+    const contract = await getContract(account, contractId);
+    state = contract.status.state;
+    if (targetStates.includes(state)) return contract;
+    if (FAILED_STATES.includes(state)) {
+      throw new Error(`Contract ${contractId} ended in state ${state}`);
+    }
+    await sleep(intervalMs);
+  }
+  throw new Error(`Contract ${contractId} is still ${state} after ${attempts} attempts`);
+}

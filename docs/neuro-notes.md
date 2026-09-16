@@ -26,3 +26,8 @@ Findings from sandbox tests (sandbox1.neuro-tech.io).
   - nonce: 32 random bytes, base64
 - Signing is asynchronous; poll `GetContract` until `status.state === "Signed"`
 - A role cannot be signed more times than its `maxCount` (returns 403)
+
+## Contract states
+- Template: `Proposed` -> `Approved`
+- Instance: `Approved` -> `BeingSigned` (some roles signed) -> `Signed` (all roles signed)
+- Poll for the target state instead of waiting for a state to change; intermediate states are skipped or observed depending on timing

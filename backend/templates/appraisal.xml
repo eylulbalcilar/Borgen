@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<contract xmlns="urn:nf:iot:leg:sc:1.0"
+          canActAsTemplate="true" visibility="Public"
+          duration="P1Y" archiveReq="P1Y" archiveOpt="P1Y">
+  <Nop xmlns="https://paiwise.tagroot.io/Schema/PaymentInstructions.xsd" />
+  <role name="Appraiser" minCount="1" maxCount="1">
+    <description xml:lang="en"><paragraph><text>The verified organisation confirming the asset valuation.</text></paragraph></description>
+  </role>
+  <role name="Owner" minCount="1" maxCount="1">
+    <description xml:lang="en"><paragraph><text>The owner of the asset accepting the valuation.</text></paragraph></description>
+  </role>
+  <parts><templateOnly /></parts>
+  <parameters>
+    <stringParameter name="AssetTitle" minLength="1" maxLength="120">
+      <description xml:lang="en"><paragraph><text>Short title of the asset.</text></paragraph></description>
+    </stringParameter>
+    <stringParameter name="SerialNumber" minLength="1" maxLength="120">
+      <description xml:lang="en"><paragraph><text>Serial number or unique identifier of the asset.</text></paragraph></description>
+    </stringParameter>
+    <stringParameter name="Valuation" minLength="1" maxLength="78">
+      <description xml:lang="en"><paragraph><text>Appraised value in the smallest currency unit.</text></paragraph></description>
+    </stringParameter>
+    <stringParameter name="Currency" minLength="1" maxLength="10">
+      <description xml:lang="en"><paragraph><text>Currency symbol of the valuation.</text></paragraph></description>
+    </stringParameter>
+    <stringParameter name="OwnerWallet" minLength="42" maxLength="42">
+      <description xml:lang="en"><paragraph><text>Wallet address that will receive the collateral token.</text></paragraph></description>
+    </stringParameter>
+  </parameters>
+  <humanReadableText xml:lang="en">
+    <paragraph><text>The Appraiser confirms that the asset </text><parameter name="AssetTitle" /><text> with serial number </text><parameter name="SerialNumber" /><text> has been inspected and is valued at </text><parameter name="Valuation" /><text> units of </text><parameter name="Currency" /><text>.</text></paragraph>
+    <paragraph><text>The Owner confirms ownership of the asset and accepts this valuation. A collateral token representing the asset may be issued to the wallet </text><parameter name="OwnerWallet" /><text>.</text></paragraph>
+    <paragraph><text>This agreement records a valuation only. It instructs no payment and creates no token on Neuro.</text></paragraph>
+  </humanReadableText>
+</contract>
