@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity ^0.8.28;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
@@ -39,7 +39,7 @@ contract CollateralNFT is ERC721, AccessControl {
         _usedNeuroContracts[key] = true;
 
         tokenId = _nextTokenId++;
-        _appraisals[tokenId] = Appraisal(neuroContractId, valuation, uint64(block.timestamp));
+        _appraisals[tokenId] = Appraisal({neuroContractId: neuroContractId, valuation: valuation, valuedAt: uint64(block.timestamp)});
         _mint(to, tokenId);
 
         emit AssetMinted(tokenId, to, neuroContractId, valuation);

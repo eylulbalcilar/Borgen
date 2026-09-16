@@ -9,3 +9,6 @@ remappings = [
   "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
   "forge-std/=lib/forge-std/src/",
 ]
+
+[lint]
+exclude_lints = ["screaming-snake-case-immutable", "asm-keccak256"]
