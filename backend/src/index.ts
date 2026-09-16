@@ -5,6 +5,7 @@ import cors from "cors";
 import { connectDatabase } from "./config/db.js";
 import { authRouter } from "./routes/auth.js";
 import { usersRouter } from "./routes/users.js";
+import { appraisalsRouter } from "./routes/appraisals.js";
 
 const PORT = Number(process.env.PORT ?? 4000);
 const FRONTEND_URL = process.env.FRONTEND_URL ?? "http://localhost:3000";
@@ -20,6 +21,7 @@ app.get("/health", (_req, res) => {
 
 app.use("/auth", authRouter);
 app.use("/users", usersRouter);
+app.use("/appraisals", appraisalsRouter);
 
 // Last middleware: turns unexpected errors into a generic 500 response.
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
