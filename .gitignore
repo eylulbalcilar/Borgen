@@ -3,8 +3,6 @@
 borrower.json
 appraiser.json
 lender.json
-barrower.json
-upraiser.json
 
 # Env
 .env
