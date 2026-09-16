@@ -1,0 +1,28 @@
+# Neuro sandbox bundles (never commit)
+*.bundle.json
+borrower.json
+appraiser.json
+lender.json
+barrower.json
+upraiser.json
+
+# Env
+.env
+.env.local
+
+# Node
+node_modules/
+
+# TypeScript build output
+dist/
+
+# Foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+
+# Next.js
+frontend/.next/
+
+# OS
+.DS_Store
