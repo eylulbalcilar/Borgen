@@ -1,7 +1,10 @@
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+
 export default function Home() {
   return (
-    <main>
-      <h1>Borgen</h1>
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-6 p-6">
+      <h1 className="text-3xl font-semibold">Borgen</h1>
+      <ConnectButton />
     </main>
   );
 }
