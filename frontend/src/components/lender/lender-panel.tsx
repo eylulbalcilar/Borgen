@@ -1,6 +1,7 @@
 "use client";
 
 import { useAccount } from "wagmi";
+import { ActivitySection } from "@/components/activity-section";
 import { DepositForm } from "@/components/lender/deposit-form";
 import { WithdrawForm } from "@/components/lender/withdraw-form";
 import { Button } from "@/components/ui/button";
@@ -83,6 +84,8 @@ export function LenderPanel() {
           onSuccess={refresh}
         />
       </div>
+      <ActivitySection />
+
     </div>
   );
 }

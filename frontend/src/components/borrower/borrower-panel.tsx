@@ -1,6 +1,7 @@
 "use client";
 
 import { useAccount } from "wagmi";
+import { ActivitySection } from "@/components/activity-section";
 import { CollateralCard } from "@/components/borrower/collateral-card";
 import { RequestForm } from "@/components/borrower/request-form";
 import { RequestList } from "@/components/borrower/request-list";
@@ -95,6 +96,8 @@ export function BorrowerPanel() {
         </h2>
         <RequestList />
       </section>
+      <ActivitySection />
+
     </div>
   );
 }

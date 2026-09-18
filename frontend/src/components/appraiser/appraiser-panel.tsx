@@ -1,5 +1,6 @@
 "use client";
 
+import { ActivitySection } from "@/components/activity-section";
 import { ReviewCard } from "@/components/appraiser/review-card";
 import { useAppraisals, type Appraisal } from "@/lib/appraisals";
 import { formatAmount } from "@/lib/format";
@@ -69,6 +70,8 @@ export function AppraiserPanel() {
           </ul>
         )}
       </section>
+      <ActivitySection />
+
     </div>
   );
 }
