@@ -7,6 +7,7 @@ import {
   createAppraisal,
   listAppraisals,
   rejectAppraisal,
+  revalueAppraisal,
 } from "../services/appraisals.js";
 
 export const appraisalsRouter = Router();
@@ -53,6 +54,14 @@ appraisalsRouter.post(
   "/:id/reject",
   handle(async (req, res) => {
     res.json(await rejectAppraisal(res.locals.wallet, req.params.id as string));
+  }),
+);
+
+// Updates the on-chain valuation of an existing collateral token.
+appraisalsRouter.post(
+  "/:id/revalue",
+  handle(async (req, res) => {
+    res.json(await revalueAppraisal(res.locals.wallet, req.params.id as string, req.body?.valuation));
   }),
 );
 

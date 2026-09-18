@@ -4,6 +4,7 @@ import { ActivityModel } from "../models/Activity.js";
 import { AppraisalRequestModel } from "../models/AppraisalRequest.js";
 import { UserModel, type UserRole } from "../models/User.js";
 import { createContract, getContract, signContract, waitForState } from "./neuro.js";
+import { updateCollateralValuation } from "./chain.js";
 import { relayAppraisal } from "./relayer.js";
 
 /**
@@ -215,6 +216,35 @@ export async function acceptAppraisal(wallet: Address, id: string) {
     tokenId,
     txHash: minted.txHash,
     metadata: { requestId: request._id, neuroContractId: contractId, valuation: minted.valuation.toString() },
+  });
+
+  return request;
+}
+
+// Re-values an asset that already has a collateral token on chain.
+// MVP limitation: this updates the chain only; a full implementation would
+// create and sign a new Neuro valuation contract first.
+export async function revalueAppraisal(wallet: Address, id: string, valuationInput: unknown) {
+  const appraiser = await requireUser(wallet, "appraiser");
+  const request = await requireRequest(id);
+
+  if (request.status !== "minted" || !request.tokenId) {
+    throw new AppraisalError(`Request is ${request.status}, expected minted`, 409);
+  }
+
+  const valuation = requireAmount(valuationInput, "valuation");
+  const txHash = await updateCollateralValuation(BigInt(request.tokenId), BigInt(valuation));
+
+  request.set({ valuation });
+  await request.save();
+
+  await ActivityModel.create({
+    type: "appraisal_revalued",
+    user: appraiser._id,
+    wallet: appraiser.walletAddress,
+    tokenId: request.tokenId,
+    txHash,
+    metadata: { requestId: request._id.toString(), valuation },
   });
 
   return request;

@@ -121,3 +121,27 @@ export async function getPoolLogs(fromBlock: bigint, toBlock: bigint) {
 }
 
 export type PoolLog = Awaited<ReturnType<typeof getPoolLogs>>[number];
+
+// Updates the appraised value of an existing collateral token.
+export async function updateCollateralValuation(
+  tokenId: bigint,
+  valuation: bigint,
+): Promise<Hash> {
+  const { account, publicClient, walletClient, nftAddress } = getClients();
+
+  const { request } = await publicClient.simulateContract({
+    account,
+    address: nftAddress,
+    abi: collateralNftAbi,
+    functionName: "updateValuation",
+    args: [tokenId, valuation],
+  });
+
+  const txHash = await walletClient.writeContract(request);
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+  if (receipt.status !== "success") {
+    throw new Error(`updateValuation reverted: ${txHash}`);
+  }
+  return txHash;
+}
