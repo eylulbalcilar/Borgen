@@ -1,31 +1,34 @@
 "use client";
 
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useAccount } from "wagmi";
 import { Onboarding } from "@/components/onboarding";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { useCurrentUser } from "@/lib/user";
 
-// Decides what to show: connect -> sign in -> onboarding -> dashboard.
+// Entry point: connect -> sign in -> onboarding -> role panel.
 export function AppShell() {
+  const router = useRouter();
   const { isConnected } = useAccount();
-  const { status, error, signIn, signOut } = useAuth();
+  const { status, error, signIn } = useAuth();
   const user = useCurrentUser();
 
+  const role = user.data?.role;
+
+  // Registered users go straight to their panel.
+  useEffect(() => {
+    if (role) router.replace(`/${role}`);
+  }, [role, router]);
+
   if (!isConnected) {
-    return (
-      <div className="flex flex-col items-center gap-4">
-        <p className="text-sm text-muted-foreground">Connect a wallet to continue.</p>
-        <ConnectButton />
-      </div>
-    );
+    return <p className="text-sm text-muted-foreground">Connect a wallet to continue.</p>;
   }
 
   if (status !== "signed-in") {
     return (
       <div className="flex flex-col items-center gap-4">
-        <ConnectButton />
         <Button onPress={signIn} isPending={status === "signing-in"}>
           {status === "signing-in" ? "Check your wallet…" : "Sign in"}
         </Button>
@@ -39,32 +42,16 @@ export function AppShell() {
   }
 
   return (
-    <div className="flex w-full max-w-md flex-col items-center gap-6">
-      <ConnectButton />
+    <div aria-live="polite" className="w-full max-w-md">
+      {user.isPending && <p className="text-sm text-muted-foreground">Loading your account…</p>}
 
-      {/* aria-live announces loading and result changes to screen readers. */}
-      <div aria-live="polite" className="w-full">
-        {user.isPending && <p className="text-sm text-muted-foreground">Loading your account…</p>}
+      {user.error && (
+        <p role="alert" className="text-sm text-destructive">
+          {user.error.message}
+        </p>
+      )}
 
-        {user.error && (
-          <p role="alert" className="text-sm text-destructive">
-            {user.error.message}
-          </p>
-        )}
-
-        {user.isSuccess && user.data === null && <Onboarding />}
-
-        {user.isSuccess && user.data && (
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-sm">
-              Signed in as <span className="font-medium capitalize">{user.data.role}</span>
-            </p>
-            <Button variant="outline" onPress={signOut}>
-              Sign out
-            </Button>
-          </div>
-        )}
-      </div>
+      {user.isSuccess && user.data === null && <Onboarding />}
     </div>
   );
 }
