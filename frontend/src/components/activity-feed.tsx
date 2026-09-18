@@ -8,6 +8,7 @@ const LABELS: Record<Activity["type"], string> = {
   appraisal_requested: "Valuation requested",
   appraisal_approved: "Valuation signed",
   appraisal_rejected: "Valuation rejected",
+  appraisal_revalued: "Valuation updated",
   nft_minted: "Collateral token issued",
   deposited: "Deposited",
   withdrawn: "Withdrawn",

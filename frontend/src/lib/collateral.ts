@@ -62,3 +62,46 @@ export function useCollateral(tokenIds: bigint[]) {
 
   return { ...query, items };
 }
+
+// Scans the first N token ids for liquidatable loans.
+// Enough for the MVP; a production version would index Borrowed events instead.
+export function useLiquidatable(maxTokenId = 20) {
+  const tokenIds = Array.from({ length: maxTokenId }, (_, index) => BigInt(index + 1));
+
+  const query = useReadContracts({
+    contracts: tokenIds.flatMap((tokenId) => [
+      { address: ADDRESSES.lendingPool, abi: loanAbi, functionName: "loans", args: [tokenId] },
+      { address: ADDRESSES.lendingPool, abi: loanAbi, functionName: "debtOf", args: [tokenId] },
+      { address: ADDRESSES.lendingPool, abi: loanAbi, functionName: "isLiquidatable", args: [tokenId] },
+      { address: ADDRESSES.collateralNft, abi: collateralNftAbi, functionName: "getAppraisal", args: [tokenId] },
+    ] as const),
+    blockTag: "latest",
+    query: { refetchInterval: 10_000 },
+  });
+
+  const positions = tokenIds
+    .map((tokenId, index) => {
+      const slice = (query.data ?? []).slice(index * 4, index * 4 + 4);
+      const value = <T,>(position: number): T | undefined => {
+        const item = slice[position];
+        return item?.status === "success" ? (item.result as T) : undefined;
+      };
+
+      const loan = value<readonly [string, bigint, number, number]>(0);
+      const appraisal = value<{ valuation: bigint }>(3);
+
+      return {
+        tokenId,
+        borrower: loan?.[0] ?? "",
+        principal: loan?.[1] ?? 0n,
+        dueAt: Number(loan?.[3] ?? 0),
+        debt: value<bigint>(1) ?? 0n,
+        isLiquidatable: value<boolean>(2) ?? false,
+        valuation: appraisal?.valuation ?? 0n,
+      };
+    })
+    // Only positions with an active loan matter.
+    .filter((item) => item.principal > 0n);
+
+  return { ...query, positions };
+}

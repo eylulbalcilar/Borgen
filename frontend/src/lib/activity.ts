@@ -8,6 +8,7 @@ export type ActivityType =
   | "appraisal_requested"
   | "appraisal_approved"
   | "appraisal_rejected"
+  | "appraisal_revalued"
   | "nft_minted"
   | "deposited"
   | "withdrawn"

@@ -37,6 +37,8 @@ export const loanAbi = parseAbi([
   "function isLiquidatable(uint256 tokenId) view returns (bool)",
   "function borrow(uint256 tokenId, uint256 amount)",
   "function repay(uint256 tokenId)",
+  "function liquidate(uint256 tokenId)",
+  "error NotLiquidatable()",
   "error ExceedsLtv(uint256 maxBorrow)",
   "error InsufficientLiquidity()",
   "error LoanNotFound()",

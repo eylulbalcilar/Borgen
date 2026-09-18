@@ -82,3 +82,15 @@ export function useRejectAppraisal() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: APPRAISALS_KEY }),
   });
 }
+
+// Updates the on-chain valuation of an asset that already has a token.
+export function useRevalueAppraisal() {
+  const { request } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, valuation }: { id: string; valuation: string }) =>
+      request<Appraisal>(`/appraisals/${id}/revalue`, { method: "POST", body: { valuation } }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: APPRAISALS_KEY }),
+  });
+}

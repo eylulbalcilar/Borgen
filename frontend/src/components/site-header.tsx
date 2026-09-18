@@ -14,6 +14,9 @@ export function SiteHeader() {
         Borgen
       </Link>
       <div className="flex items-center gap-2">
+        <Link href="/liquidations" className="text-sm underline-offset-4 hover:underline">
+          Liquidations
+        </Link>
         {status === "signed-in" && (
           <Button variant="ghost" size="sm" onPress={signOut}>
             Sign out

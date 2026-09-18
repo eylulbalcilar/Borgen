@@ -1,6 +1,7 @@
 "use client";
 
 import { ActivitySection } from "@/components/activity-section";
+import { RevalueCard } from "@/components/appraiser/revalue-card";
 import { ReviewCard } from "@/components/appraiser/review-card";
 import { useAppraisals, type Appraisal } from "@/lib/appraisals";
 import { formatAmount } from "@/lib/format";
@@ -28,7 +29,10 @@ export function AppraiserPanel() {
   }
 
   const pending = appraisals.data?.filter((item) => item.status === "pending") ?? [];
-  const history = appraisals.data?.filter((item) => item.status !== "pending") ?? [];
+  const minted = appraisals.data?.filter((item) => item.status === "minted") ?? [];
+  const history = appraisals.data?.filter(
+    (item) => item.status !== "pending" && item.status !== "minted",
+  ) ?? [];
 
   return (
     <div className="flex w-full flex-col gap-10">
@@ -42,6 +46,21 @@ export function AppraiserPanel() {
           <ul className="flex flex-col gap-4">
             {pending.map((item) => (
               <ReviewCard key={item._id} request={item} />
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="issued-heading" className="flex flex-col gap-4">
+        <h2 id="issued-heading" className="text-lg font-medium">
+          Issued collateral
+        </h2>
+        {minted.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No collateral tokens issued yet.</p>
+        ) : (
+          <ul className="flex flex-col gap-4">
+            {minted.map((item) => (
+              <RevalueCard key={item._id} request={item} />
             ))}
           </ul>
         )}
