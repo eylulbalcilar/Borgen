@@ -60,3 +60,25 @@ export function useAcceptAppraisal() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: APPRAISALS_KEY }),
   });
 }
+
+// Creates the Neuro contract and signs it as Appraiser.
+export function useApproveAppraisal() {
+  const { request } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, valuation }: { id: string; valuation: string }) =>
+      request<Appraisal>(`/appraisals/${id}/approve`, { method: "POST", body: { valuation } }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: APPRAISALS_KEY }),
+  });
+}
+
+export function useRejectAppraisal() {
+  const { request } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => request<Appraisal>(`/appraisals/${id}/reject`, { method: "POST" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: APPRAISALS_KEY }),
+  });
+}
