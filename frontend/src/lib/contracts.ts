@@ -29,3 +29,27 @@ export const lendingPoolAbi = parseAbi([
   "error InsufficientShares()",
   "error InsufficientLiquidity()",
 ]);
+
+// Loan side of the pool, used by the borrower panel.
+export const loanAbi = parseAbi([
+  "function loans(uint256 tokenId) view returns (address borrower, uint256 principal, uint64 startedAt, uint64 dueAt)",
+  "function debtOf(uint256 tokenId) view returns (uint256)",
+  "function isLiquidatable(uint256 tokenId) view returns (bool)",
+  "function borrow(uint256 tokenId, uint256 amount)",
+  "function repay(uint256 tokenId)",
+  "error ExceedsLtv(uint256 maxBorrow)",
+  "error InsufficientLiquidity()",
+  "error LoanNotFound()",
+  "error NotBorrower()",
+]);
+
+export const collateralNftAbi = parseAbi([
+  "function getAppraisal(uint256 tokenId) view returns ((string neuroContractId, uint256 valuation, uint64 valuedAt))",
+  "function ownerOf(uint256 tokenId) view returns (address)",
+  "function getApproved(uint256 tokenId) view returns (address)",
+  "function approve(address to, uint256 tokenId)",
+]);
+
+// Loan terms, mirroring the constants in LendingPool.sol.
+export const LTV_BPS = 5_000n;
+export const BPS = 10_000n;
