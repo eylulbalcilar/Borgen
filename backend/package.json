@@ -6,7 +6,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "backfill:minted-to": "tsx src/scripts/backfill-minted-to.ts"
   },
   "keywords": [],
   "author": "",

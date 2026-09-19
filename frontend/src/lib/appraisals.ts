@@ -14,6 +14,9 @@ export type Appraisal = {
   neuroContractId?: string;
   tokenId?: string;
   mintTxHash?: string;
+  // Wallet the collateral token was minted to. Absent on records issued
+  // before the backend started recording it.
+  mintedTo?: string;
   createdAt: string;
   // Populated with the borrower's wallet address by the backend.
   borrower?: { _id: string; walletAddress: string };

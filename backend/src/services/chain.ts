@@ -21,6 +21,7 @@ import { baseSepolia } from "viem/chains";
 export const collateralNftAbi = parseAbi([
   "function mint(address to, string neuroContractId, uint256 valuation) returns (uint256)",
   "function updateValuation(uint256 tokenId, uint256 newValuation)",
+  "function ownerOf(uint256 tokenId) view returns (address)",
   "event AssetMinted(uint256 indexed tokenId, address indexed owner, string neuroContractId, uint256 valuation)",
   "error NeuroContractAlreadyUsed(string neuroContractId)",
   "error ZeroValuation()",
@@ -102,6 +103,30 @@ export const lendingPoolEvents = parseAbi([
   "event Repaid(uint256 indexed tokenId, address indexed borrower, uint256 debt)",
   "event Liquidated(uint256 indexed tokenId, address indexed liquidator, uint256 debt)",
 ]);
+
+// Current holder of a collateral token.
+export async function ownerOfCollateral(tokenId: bigint): Promise<Address> {
+  const { publicClient, nftAddress } = getClients();
+  return publicClient.readContract({
+    address: nftAddress,
+    abi: collateralNftAbi,
+    functionName: "ownerOf",
+    args: [tokenId],
+  });
+}
+
+// Wallet a token was originally minted to, read from its mint transaction.
+// Needed because ownerOf reports the pool while a loan holds the token.
+export async function mintRecipient(txHash: Hash): Promise<Address | undefined> {
+  const { publicClient } = getClients();
+  const receipt = await publicClient.getTransactionReceipt({ hash: txHash });
+  const [event] = parseEventLogs({
+    abi: collateralNftAbi,
+    eventName: "AssetMinted",
+    logs: receipt.logs,
+  });
+  return event?.args.owner;
+}
 
 export async function getLatestBlock(): Promise<bigint> {
   return getClients().publicClient.getBlockNumber();

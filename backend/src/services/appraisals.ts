@@ -3,7 +3,7 @@ import type { Address } from "viem";
 import { ActivityModel } from "../models/Activity.js";
 import { AppraisalRequestModel } from "../models/AppraisalRequest.js";
 import { UserModel, type UserRole } from "../models/User.js";
-import { createContract, getContract, signContract, waitForState } from "./neuro.js";
+import { createContract, getContract, readParameters, signContract, waitForState } from "./neuro.js";
 import { updateCollateralValuation } from "./chain.js";
 import { relayAppraisal } from "./relayer.js";
 
@@ -187,10 +187,23 @@ export async function acceptAppraisal(wallet: Address, id: string) {
 
   const contractId = request.neuroContractId;
 
+  const contract = await getContract("borrower", contractId);
+
+  // The relayer mints to the OwnerWallet baked into the signed contract, not to
+  // whoever is calling. If the caller has since changed wallet, minting would
+  // send the token elsewhere and leave them holding a record they cannot use,
+  // so stop here rather than after an irreversible mint.
+  const ownerWallet = readParameters(contract).OwnerWallet ?? "";
+  if (ownerWallet.toLowerCase() !== wallet.toLowerCase()) {
+    throw new AppraisalError(
+      "This valuation was signed for a different wallet. Connect that wallet, or request a new valuation from this one.",
+      409,
+    );
+  }
+
   // Sign as Owner unless the contract is already complete.
   // Retry-safe: if an earlier attempt signed but failed later,
   // Neuro rejects a second Owner signature and we continue.
-  const contract = await getContract("borrower", contractId);
   if (contract.status.state !== "Signed") {
     try {
       await signContract("borrower", contractId, "Owner");
@@ -206,7 +219,7 @@ export async function acceptAppraisal(wallet: Address, id: string) {
   const minted = await relayAppraisal(contractId);
   const tokenId = minted.tokenId.toString();
 
-  request.set({ status: "minted", tokenId, mintTxHash: minted.txHash });
+  request.set({ status: "minted", tokenId, mintTxHash: minted.txHash, mintedTo: minted.owner });
   await request.save();
 
   await ActivityModel.create({

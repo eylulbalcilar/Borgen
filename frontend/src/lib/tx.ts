@@ -30,8 +30,14 @@ export function useTx(onConfirmed?: (hash: `0x${string}`) => void) {
 
   // Remembers the last handled hash so the callback never fires twice.
   const handled = useRef<string | undefined>(undefined);
+
+  // Held in a ref so that passing a fresh inline callback does not retrigger
+  // the effect below. Refreshed in its own effect, declared first so the ref is
+  // already current when the effect that calls it runs.
   const callback = useRef(onConfirmed);
-  callback.current = onConfirmed;
+  useEffect(() => {
+    callback.current = onConfirmed;
+  });
 
   useEffect(() => {
     if (!receipt.isSuccess || !hash || handled.current === hash) return;

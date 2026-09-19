@@ -16,6 +16,7 @@ type Props = {
   title: string;
   allowance: bigint;
   wallet: string | undefined;
+  mintedTo: string | undefined;
   onSuccess: () => void;
 };
 
@@ -23,7 +24,7 @@ function toInput(value: bigint) {
   return (Number(value) / 1_000_000).toFixed(2);
 }
 
-export function CollateralCard({ item, title, allowance, wallet, onSuccess }: Props) {
+export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuccess }: Props) {
   const [input, setInput] = useState("");
   const tx = useTx(() => {
     setInput("");
@@ -31,11 +32,15 @@ export function CollateralCard({ item, title, allowance, wallet, onSuccess }: Pr
   });
 
   /*
-    Once escrowed the pool holds the token and the loan records the borrower;
-    otherwise the wallet must be the owner. If neither matches, every action on
-    this token reverts, so the card offers none.
+    Who may act on this token. While a loan is open the pool holds it and the
+    loan carries the borrower, otherwise it is the owner. The record answers
+    before the chain batch resolves, so the card does not flash an action it
+    then hides, but the chain wins once loaded: a liquidation moves the token
+    without touching the record. If neither names this wallet every action
+    would revert, so the card offers none.
   */
-  const holder = item.isEscrowed ? item.loanBorrower : item.owner;
+  const chainHolder = item.isEscrowed ? item.loanBorrower : item.owner;
+  const holder = chainHolder || mintedTo || "";
   const isHeld = Boolean(wallet && holder && holder.toLowerCase() === wallet.toLowerCase());
 
   const amount = parseAmount(input);
@@ -144,9 +149,8 @@ export function CollateralCard({ item, title, allowance, wallet, onSuccess }: Pr
           >
             <span aria-hidden="true" className="mt-1.5 block size-[7px] bg-seal" />
             <span className="text-[13px] leading-[1.6] text-seal-text">
-              This token is held by another address, so it cannot be borrowed against or repaid
-              from this wallet. Connect the wallet that owns it, or request a new valuation from
-              this one.
+              Issued to another wallet, so it cannot be used from here. Connect that wallet, or
+              request a new valuation from this one.
             </span>
           </p>
         ) : item.hasLoan ? (

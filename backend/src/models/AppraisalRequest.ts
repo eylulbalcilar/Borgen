@@ -17,6 +17,16 @@ const appraisalRequestSchema = new Schema(
     neuroContractId: { type: String, unique: true, sparse: true },
     tokenId: { type: String },
     mintTxHash: { type: String },
+
+    // Wallet the collateral token was minted to, copied from the signed Neuro
+    // contract. Stored so ownership can be checked from the record alone,
+    // without reading the chain or trusting the borrower link.
+    mintedTo: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      match: /^0x[a-f0-9]{40}$/,
+    },
   },
   { timestamps: true },
 );

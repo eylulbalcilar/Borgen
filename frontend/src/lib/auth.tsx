@@ -7,6 +7,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { createSiweMessage } from "viem/siwe";
@@ -34,14 +35,52 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-// sessionStorage exists only in the browser, so it is read after mount.
+/*
+  sessionStorage is the source of truth for the session, and it cannot be read
+  while rendering on the server. Exposing it as an external store lets React
+  subscribe to it instead of copying it into state after mount, so the server
+  snapshot stays null and no render is spent on the copy.
+*/
+const listeners = new Set<() => void>();
+let cachedRaw: string | null = null;
+let cachedSession: Session | null = null;
+
 function readStoredSession(): Session | null {
+  let raw: string | null = null;
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Session) : null;
+    raw = sessionStorage.getItem(STORAGE_KEY);
   } catch {
-    return null;
+    raw = null;
   }
+
+  // Parse only when the stored text changed, so the snapshot keeps its identity
+  // between renders and React does not see an endless stream of new values.
+  if (raw !== cachedRaw) {
+    cachedRaw = raw;
+    try {
+      cachedSession = raw ? (JSON.parse(raw) as Session) : null;
+    } catch {
+      cachedSession = null;
+    }
+  }
+  return cachedSession;
+}
+
+function subscribeToSession(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+// Writes stay unguarded so a storage failure still surfaces to the caller.
+function writeStoredSession(session: Session | null) {
+  if (session) {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  } else {
+    sessionStorage.removeItem(STORAGE_KEY);
+  }
+  for (const listener of listeners) listener();
 }
 
 // Wallet errors carry a readable shortMessage; prefer it over the long message.
@@ -56,23 +95,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { address, chainId, status: accountStatus } = useAccount();
   const { signMessageAsync } = useSignMessage();
 
-  const [stored, setStored] = useState<Session | null>(null);
+  const stored = useSyncExternalStore(subscribeToSession, readStoredSession, () => null);
   const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const signOut = useCallback(() => {
-    sessionStorage.removeItem(STORAGE_KEY);
-    setStored(null);
-  }, []);
-
-  useEffect(() => {
-    setStored(readStoredSession());
+    writeStoredSession(null);
   }, []);
 
   // Wallet disconnected in RainbowKit or MetaMask: drop the session.
   useAccountEffect({ onDisconnect: signOut });
 
-  // Account switched in MetaMask: the token belongs to the previous wallet.
+  // Account switched in MetaMask: the token belongs to the previous wallet, so
+  // clear it from storage. The derived session below already ignores it, this
+  // stops it coming back if the original wallet reconnects later.
   useEffect(() => {
     if (accountStatus !== "connected" || !stored || !address) return;
     if (stored.wallet.toLowerCase() !== address.toLowerCase()) signOut();
@@ -106,8 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: { message, signature },
       });
 
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(result));
-      setStored(result);
+      writeStoredSession(result);
     } catch (err) {
       setError(readableError(err));
     } finally {

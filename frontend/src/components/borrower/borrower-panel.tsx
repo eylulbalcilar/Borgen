@@ -85,6 +85,7 @@ export function BorrowerPanel() {
                 title={item.asset.title}
                 allowance={pool.allowance}
                 wallet={address}
+                mintedTo={item.mintedTo}
                 onSuccess={refresh}
               />
             ))}
