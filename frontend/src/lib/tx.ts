@@ -6,6 +6,18 @@ import { useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
 export type TxStep = "idle" | "signing" | "confirming" | "done";
 
+// Declining the wallet prompt is a normal outcome, not a failure to report.
+// viem wraps the rejection, so the cause chain is walked for it.
+function isUserRejection(err: unknown): boolean {
+  let current: unknown = err;
+  for (let depth = 0; current && typeof current === "object" && depth < 5; depth += 1) {
+    const node = current as { name?: string; code?: number; cause?: unknown };
+    if (node.name === "UserRejectedRequestError" || node.code === 4001) return true;
+    current = node.cause;
+  }
+  return false;
+}
+
 // Wraps a contract write: send, wait for the receipt, expose one status.
 // onConfirmed runs once per successful transaction.
 export function useTx(onConfirmed?: (hash: `0x${string}`) => void) {
@@ -43,10 +55,14 @@ export function useTx(onConfirmed?: (hash: `0x${string}`) => void) {
       return txHash;
     } catch (err) {
       setStep("idle");
-      const shortMessage =
-        err && typeof err === "object" && "shortMessage" in err ? String(err.shortMessage) : null;
-      setError(shortMessage ?? (err instanceof Error ? err.message : "Transaction failed"));
-      throw err;
+      if (!isUserRejection(err)) {
+        const shortMessage =
+          err && typeof err === "object" && "shortMessage" in err ? String(err.shortMessage) : null;
+        setError(shortMessage ?? (err instanceof Error ? err.message : "Transaction failed"));
+      }
+      // Deliberately not rethrown: onPress ignores the returned promise, so a
+      // rethrow escapes as an unhandled rejection instead of reaching the UI.
+      return undefined;
     }
   }
 

@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { maxUint256 } from "viem";
-import { Button } from "@/components/ui/button";
-import { ADDRESSES, lendingPoolAbi, stablecoinAbi } from "@/lib/contracts";
+import { AmountInput } from "@/components/ui/field";
+import { Panel, PanelHeader } from "@/components/ui/panel";
+import { PillButton } from "@/components/ui/pill-button";
+import { TxStatus } from "@/components/ui/status";
+import { ADDRESSES, ASSET_SYMBOL, lendingPoolAbi, stablecoinAbi } from "@/lib/contracts";
 import { formatAmount, parseAmount } from "@/lib/format";
 import { useTx } from "@/lib/tx";
 
@@ -54,44 +57,52 @@ export function DepositForm({ balance, allowance, onSuccess }: Props) {
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <label htmlFor="deposit-amount" className="text-sm font-medium">
-        Deposit
-      </label>
-      <input
-        id="deposit-amount"
-        inputMode="decimal"
-        placeholder="0.00"
-        value={input}
-        onChange={(event) => setInput(event.target.value)}
-        aria-describedby="deposit-balance"
-        aria-invalid={tooLarge || undefined}
-        className="h-10 w-full rounded-lg border border-input px-3 text-sm"
-      />
-      <p id="deposit-balance" className="text-sm text-muted-foreground">
-        Wallet balance: {formatAmount(balance)}
-      </p>
+    <Panel>
+      <PanelHeader eyebrow="Deposit" title="Add liquidity to the pool" className="border-line" />
 
-      <Button onPress={submit} isDisabled={!amount || tooLarge} isPending={tx.isBusy}>
-        {tx.status === "signing"
-          ? "Check your wallet…"
-          : tx.status === "confirming"
-            ? "Confirming…"
-            : needsApproval
-              ? "Approve"
-              : "Deposit"}
-      </Button>
+      <div className="grid gap-4 p-6">
+        <AmountInput
+          large
+          label={`Amount to deposit in ${ASSET_SYMBOL}`}
+          unit={ASSET_SYMBOL}
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          onMax={() => setInput((Number(balance) / 1_000_000).toFixed(2))}
+          aria-invalid={tooLarge || undefined}
+        />
 
-      {tooLarge && (
-        <p role="alert" className="text-sm text-destructive">
-          Amount exceeds your balance.
-        </p>
-      )}
-      {tx.error && (
-        <p role="alert" className="text-sm text-destructive">
-          {tx.error}
-        </p>
-      )}
-    </div>
+        <dl className="grid gap-2.5 font-mono text-xs">
+          <div className="flex justify-between">
+            <dt className="text-dim">Available</dt>
+            <dd className="text-text">{formatAmount(balance, false)}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-dim">Borrow rate</dt>
+            <dd className="text-text">10.00% APR</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-dim">Term</dt>
+            <dd className="text-text">30 days</dd>
+          </div>
+        </dl>
+
+        <PillButton onPress={submit} isDisabled={!amount || tooLarge} isPending={tx.isBusy}>
+          {tx.status === "signing"
+            ? "Check your wallet…"
+            : tx.status === "confirming"
+              ? "Confirming…"
+              : needsApproval
+                ? `Approve ${ASSET_SYMBOL}`
+                : "Deposit"}
+        </PillButton>
+
+        {tooLarge && (
+          <p role="alert" className="font-mono text-[11px] text-danger-text">
+            Amount exceeds your balance.
+          </p>
+        )}
+        <TxStatus status={tx.status} error={tx.error} />
+      </div>
+    </Panel>
   );
 }

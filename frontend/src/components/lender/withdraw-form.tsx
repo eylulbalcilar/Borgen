@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { ADDRESSES, lendingPoolAbi } from "@/lib/contracts";
+import { AmountInput } from "@/components/ui/field";
+import { Panel, PanelHeader } from "@/components/ui/panel";
+import { PillButton } from "@/components/ui/pill-button";
+import { TxStatus } from "@/components/ui/status";
+import { ADDRESSES, ASSET_SYMBOL, lendingPoolAbi } from "@/lib/contracts";
 import { formatAmount, parseAmount } from "@/lib/format";
 import { useTx } from "@/lib/tx";
 
@@ -47,48 +50,57 @@ export function WithdrawForm({ shares, position, available, onSuccess }: Props) 
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <label htmlFor="withdraw-amount" className="text-sm font-medium">
-        Withdraw
-      </label>
-      <input
-        id="withdraw-amount"
-        inputMode="decimal"
-        placeholder="0.00"
-        value={input}
-        onChange={(event) => setInput(event.target.value)}
-        aria-describedby="withdraw-position"
-        aria-invalid={tooLarge || undefined}
-        className="h-10 w-full rounded-lg border border-input px-3 text-sm"
-      />
-      <p id="withdraw-position" className="text-sm text-muted-foreground">
-        Your position: {formatAmount(position)}
-      </p>
+    <Panel>
+      <PanelHeader eyebrow="Withdraw" title="Redeem from your position" className="border-line" />
 
-      <Button
-        variant="outline"
-        onPress={submit}
-        isDisabled={!amount || tooLarge || notEnoughLiquidity}
-        isPending={tx.isBusy}
-      >
-        {tx.status === "signing" ? "Check your wallet…" : tx.status === "confirming" ? "Confirming…" : "Withdraw"}
-      </Button>
+      <div className="grid gap-4 p-6">
+        <AmountInput
+          large
+          label={`Amount to withdraw in ${ASSET_SYMBOL}`}
+          unit={ASSET_SYMBOL}
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          onMax={() => setInput((Number(position) / 1_000_000).toFixed(2))}
+          aria-invalid={tooLarge || undefined}
+        />
 
-      {tooLarge && (
-        <p role="alert" className="text-sm text-destructive">
-          Amount exceeds your position.
+        <dl className="grid gap-2.5 font-mono text-xs">
+          <div className="flex justify-between">
+            <dt className="text-dim">Your position</dt>
+            <dd className="text-text">{formatAmount(position, false)}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-dim">Instantly redeemable</dt>
+            <dd className="text-text">{formatAmount(available, false)}</dd>
+          </div>
+        </dl>
+
+        <PillButton
+          variant="outline"
+          onPress={submit}
+          isDisabled={!amount || tooLarge || notEnoughLiquidity}
+          isPending={tx.isBusy}
+        >
+          {tx.status === "signing" ? "Check your wallet…" : tx.status === "confirming" ? "Confirming…" : "Withdraw"}
+        </PillButton>
+
+        <p className="font-mono text-[10.5px] leading-[1.7] text-dim">
+          Redemptions are capped by available liquidity. The remainder can be withdrawn once a
+          repayment lands.
         </p>
-      )}
-      {notEnoughLiquidity && (
-        <p role="alert" className="text-sm text-destructive">
-          Not enough liquidity right now: {formatAmount(available)} available.
-        </p>
-      )}
-      {tx.error && (
-        <p role="alert" className="text-sm text-destructive">
-          {tx.error}
-        </p>
-      )}
-    </div>
+
+        {tooLarge && (
+          <p role="alert" className="font-mono text-[11px] text-danger-text">
+            Amount exceeds your position.
+          </p>
+        )}
+        {notEnoughLiquidity && (
+          <p role="alert" className="font-mono text-[11px] text-danger-text">
+            Not enough liquidity right now: {formatAmount(available)} available.
+          </p>
+        )}
+        <TxStatus status={tx.status} error={tx.error} />
+      </div>
+    </Panel>
   );
 }

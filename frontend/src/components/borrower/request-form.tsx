@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Panel, PanelHeader } from "@/components/ui/panel";
+import { PillButton } from "@/components/ui/pill-button";
+import { TextArea, TextField } from "@/components/ui/field";
 import { useCreateAppraisal } from "@/lib/appraisals";
 import { ASSET_SYMBOL } from "@/lib/contracts";
 import { parseAmount } from "@/lib/format";
-
-const inputClass = "h-10 w-full rounded-lg border border-input px-3 text-sm";
 
 export function RequestForm() {
   const [title, setTitle] = useState("");
@@ -14,14 +14,27 @@ export function RequestForm() {
   const [description, setDescription] = useState("");
   const [valuation, setValuation] = useState("");
 
+  // Errors appear only after a submit attempt, not while the form is still blank.
+  const [attempted, setAttempted] = useState(false);
+
   const create = useCreateAppraisal();
 
   // The backend stores amounts as integer strings in the smallest unit.
   const amount = parseAmount(valuation);
-  const canSubmit = title.trim() !== "" && serialNumber.trim() !== "" && amount !== undefined;
+  const errors = {
+    title: title.trim() === "" ? "Enter the asset title" : undefined,
+    serialNumber: serialNumber.trim() === "" ? "Enter the serial number" : undefined,
+    valuation:
+      valuation.trim() === ""
+        ? "Enter the value you expect"
+        : amount === undefined
+          ? "Use digits only, for example 180000.00"
+          : undefined,
+  };
 
   function submit() {
-    if (!canSubmit || !amount) return;
+    setAttempted(true);
+    if (errors.title || errors.serialNumber || errors.valuation || !amount) return;
     create.mutate(
       {
         title: title.trim(),
@@ -35,84 +48,74 @@ export function RequestForm() {
           setSerialNumber("");
           setDescription("");
           setValuation("");
+          setAttempted(false);
         },
       },
     );
   }
 
   return (
-    <section aria-labelledby="request-heading" className="flex flex-col gap-4">
-      <h2 id="request-heading" className="text-lg font-medium">
-        Request a valuation
-      </h2>
+    <Panel>
+      <PanelHeader eyebrow="Request a valuation" title="Submit an asset to an appraiser" />
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-2">
-          <label htmlFor="asset-title" className="text-sm font-medium">
-            Asset
-          </label>
-          <input
-            id="asset-title"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            maxLength={120}
-            className={inputClass}
-          />
-        </div>
+      <div className="grid gap-[18px] p-6">
+        <TextField
+          label="Asset title"
+          value={title}
+          maxLength={120}
+          placeholder="e.g. Patek Philippe 5711/1A"
+          error={attempted ? errors.title : undefined}
+          onChange={(event) => setTitle(event.target.value)}
+        />
 
-        <div className="flex flex-col gap-2">
-          <label htmlFor="asset-serial" className="text-sm font-medium">
-            Serial number
-          </label>
-          <input
-            id="asset-serial"
+        <div className="grid gap-3.5 sm:grid-cols-2">
+          <TextField
+            label="Serial number"
+            mono
             value={serialNumber}
-            onChange={(event) => setSerialNumber(event.target.value)}
             maxLength={120}
-            className={inputClass}
+            placeholder="e.g. 5711-1A-010"
+            error={attempted ? errors.serialNumber : undefined}
+            onChange={(event) => setSerialNumber(event.target.value)}
+          />
+          <TextField
+            label={`Requested value (${ASSET_SYMBOL})`}
+            mono
+            inputMode="decimal"
+            value={valuation}
+            placeholder="0.00"
+            error={attempted ? errors.valuation : undefined}
+            onChange={(event) => setValuation(event.target.value)}
           />
         </div>
-      </div>
 
-      <div className="flex flex-col gap-2">
-        <label htmlFor="asset-description" className="text-sm font-medium">
-          Description <span className="text-muted-foreground">(optional)</span>
-        </label>
-        <textarea
-          id="asset-description"
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-          maxLength={1000}
+        <TextArea
+          label={
+            <>
+              Description <span className="normal-case tracking-normal">(optional)</span>
+            </>
+          }
           rows={3}
-          className="w-full rounded-lg border border-input p-3 text-sm"
+          maxLength={1000}
+          value={description}
+          placeholder="Add condition, provenance and service history"
+          onChange={(event) => setDescription(event.target.value)}
         />
-      </div>
 
-      <div className="flex flex-col gap-2">
-        <label htmlFor="asset-valuation" className="text-sm font-medium">
-          Requested value ({ASSET_SYMBOL})
-        </label>
-        <input
-          id="asset-valuation"
-          inputMode="decimal"
-          placeholder="0.00"
-          value={valuation}
-          onChange={(event) => setValuation(event.target.value)}
-          className={inputClass}
-        />
-      </div>
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
+          <p className="font-mono text-[11px] text-dim">Routed to a credentialed appraiser</p>
+          <PillButton onPress={submit} isDisabled={create.isPending} isPending={create.isPending}>
+            {create.isPending ? "Sending…" : "Submit request"}
+          </PillButton>
+        </div>
 
-      <div>
-        <Button onPress={submit} isDisabled={!canSubmit} isPending={create.isPending}>
-          {create.isPending ? "Sending…" : "Send request"}
-        </Button>
+        {create.error && (
+          <p role="alert" className="grid grid-cols-[auto_1fr] items-start gap-3 rounded-field border border-danger px-[13px] py-3">
+            <span aria-hidden="true" className="mt-1.5 block size-[7px] bg-danger" />
+            <span className="text-[13px] leading-[1.6] text-danger-text">{create.error.message}</span>
+          </p>
+        )}
       </div>
-
-      {create.error && (
-        <p role="alert" className="text-sm text-destructive">
-          {create.error.message}
-        </p>
-      )}
-    </section>
+    </Panel>
   );
 }

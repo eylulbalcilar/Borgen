@@ -11,6 +11,10 @@ export type Collateral = {
   debt: bigint;
   dueAt: number;
   hasLoan: boolean;
+  // On-chain holder, and the borrower recorded on the loan once escrowed.
+  // The wallet must match one of them or every action reverts.
+  owner: string;
+  loanBorrower: string;
   // True while the pool holds the token as collateral.
   isEscrowed: boolean;
   isApproved: boolean;
@@ -55,6 +59,8 @@ export function useCollateral(tokenIds: bigint[]) {
       debt,
       dueAt: Number(loan?.[3] ?? 0),
       hasLoan: principal > 0n,
+      owner: owner ?? "",
+      loanBorrower: loan?.[0] ?? "",
       isEscrowed: owner?.toLowerCase() === ADDRESSES.lendingPool.toLowerCase(),
       isApproved: approved?.toLowerCase() === ADDRESSES.lendingPool.toLowerCase(),
     };

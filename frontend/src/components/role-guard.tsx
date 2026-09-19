@@ -21,19 +21,23 @@ export function RoleGuard({ role, children }: { role: UserRole; children: ReactN
 
   useEffect(() => {
     if (notSignedIn || notRegistered) {
-      router.replace("/");
+      router.replace("/app");
     } else if (wrongRole && actualRole) {
       router.replace(`/${actualRole}`);
     }
   }, [notSignedIn, notRegistered, wrongRole, actualRole, router]);
 
   if (user.isPending || notSignedIn || notRegistered || wrongRole) {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
+    return (
+      <p className="mx-auto w-full max-w-[1320px] px-8 py-24 font-mono text-[11.5px] uppercase tracking-[0.14em] text-dim">
+        Loading…
+      </p>
+    );
   }
 
   if (user.error) {
     return (
-      <p role="alert" className="text-sm text-destructive">
+      <p role="alert" className="mx-auto w-full max-w-[1320px] px-8 py-24 font-mono text-[11.5px] text-danger-text">
         {user.error.message}
       </p>
     );

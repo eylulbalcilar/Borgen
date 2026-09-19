@@ -1,10 +1,13 @@
 "use client";
 
 import { useAccount } from "wagmi";
-import { ActivitySection } from "@/components/activity-section";
+import { ActivityFeed } from "@/components/activity-feed";
 import { DepositForm } from "@/components/lender/deposit-form";
 import { WithdrawForm } from "@/components/lender/withdraw-form";
-import { Button } from "@/components/ui/button";
+import { Meter } from "@/components/ui/meter";
+import { HeaderStat, ScreenHeader } from "@/components/ui/panel";
+import { PillButton } from "@/components/ui/pill-button";
+import { TxStatus } from "@/components/ui/status";
 import { ADDRESSES, stablecoinAbi } from "@/lib/contracts";
 import { formatAmount } from "@/lib/format";
 import { usePoolData } from "@/lib/pool";
@@ -16,6 +19,7 @@ const FAUCET_AMOUNT = 10_000_000_000n; // 10,000 mUSD
 export function LenderPanel() {
   const { address } = useAccount();
   const pool = usePoolData();
+
   const refresh = () => {
     void pool.refetch();
     // Some RPCs lag one block behind the receipt; read again shortly after.
@@ -26,6 +30,7 @@ export function LenderPanel() {
 
   async function getTestTokens() {
     if (!address) return;
+    faucet.clear();
     await faucet.send({
       address: ADDRESSES.stablecoin,
       abi: stablecoinAbi,
@@ -34,48 +39,59 @@ export function LenderPanel() {
     });
   }
 
+  const utilisation =
+    pool.totalAssets !== undefined && pool.totalAssets > 0n && pool.totalBorrowed !== undefined
+      ? Number((pool.totalBorrowed * 10_000n) / pool.totalAssets) / 100
+      : 0;
+
+  // Share of the pool the connected wallet owns.
+  const share =
+    pool.totalAssets !== undefined && pool.totalAssets > 0n
+      ? Number((pool.position * 10_000n) / pool.totalAssets) / 100
+      : 0;
+
+  const stats = [
+    { k: "Total assets", v: formatAmount(pool.totalAssets, false), note: "Pool size" },
+    {
+      k: "Borrowed",
+      v: formatAmount(pool.totalBorrowed, false),
+      note: `${utilisation.toFixed(2)}% utilisation`,
+    },
+    { k: "Available", v: formatAmount(pool.available, false), note: "Redeemable now" },
+    {
+      k: "Your position",
+      v: formatAmount(pool.position, false),
+      note: `${share.toFixed(2)}% of pool`,
+    },
+  ];
+
   return (
-    <div className="flex w-full flex-col gap-8">
-      <section aria-labelledby="pool-heading" className="flex flex-col gap-3">
-        <h2 id="pool-heading" className="text-lg font-medium">
-          Pool
-        </h2>
-        <dl className="grid gap-4 sm:grid-cols-3">
-          <div>
-            <dt className="text-sm text-muted-foreground">Total assets</dt>
-            <dd className="text-lg">{formatAmount(pool.totalAssets)}</dd>
-          </div>
-          <div>
-            <dt className="text-sm text-muted-foreground">Borrowed</dt>
-            <dd className="text-lg">{formatAmount(pool.totalBorrowed)}</dd>
-          </div>
-          <div>
-            <dt className="text-sm text-muted-foreground">Available</dt>
-            <dd className="text-lg">{formatAmount(pool.available)}</dd>
-          </div>
-        </dl>
-      </section>
+    <div className="mx-auto w-full max-w-[1320px] px-8 pb-24 pt-11">
+      <ScreenHeader
+        eyebrow="( 0.5 ) Lender"
+        title="Pool position"
+        aside={
+          <dl className="text-right">
+            <HeaderStat label="Wallet balance" value={formatAmount(pool.balance, false)} />
+          </dl>
+        }
+      />
 
-      <section aria-labelledby="position-heading" className="flex flex-col gap-3">
-        <h2 id="position-heading" className="text-lg font-medium">
-          Your position
-        </h2>
-        <p className="text-lg">{formatAmount(pool.position)}</p>
-        <p className="text-sm text-muted-foreground">
-          Wallet balance: {formatAmount(pool.balance)}
-        </p>
-        <div>
-          <Button variant="outline" size="sm" onPress={getTestTokens} isPending={faucet.isBusy}>
-            {faucet.isBusy ? "Minting…" : "Get test tokens"}
-          </Button>
-        </div>        {faucet.error && (
-          <p role="alert" className="text-sm text-destructive">
-            {faucet.error}
-          </p>
-        )}
-      </section>
+      <dl className="mt-8 grid grid-cols-[repeat(auto-fit,minmax(min(210px,100%),1fr))] gap-px overflow-hidden rounded-[24px] border border-glass-border bg-glass-border">
+        {stats.map((stat) => (
+          <div key={stat.k} className="bg-glass p-[26px]">
+            <dt className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-dim">{stat.k}</dt>
+            <dd className="mt-3.5 font-mono text-[28px] text-text">{stat.v}</dd>
+            <dd className="mt-2 font-mono text-[11px] text-dim">{stat.note}</dd>
+          </div>
+        ))}
+      </dl>
 
-      <div className="grid gap-8 sm:grid-cols-2">
+      <div className="mt-6">
+        <Meter value={utilisation} label="Utilisation" />
+      </div>
+
+      <div className="mt-8 grid grid-cols-[repeat(auto-fit,minmax(min(360px,100%),1fr))] items-start gap-6">
         <DepositForm balance={pool.balance} allowance={pool.allowance} onSuccess={refresh} />
         <WithdrawForm
           shares={pool.shares}
@@ -84,8 +100,20 @@ export function LenderPanel() {
           onSuccess={refresh}
         />
       </div>
-      <ActivitySection />
 
+      <div className="mt-8 flex flex-wrap items-center gap-4">
+        <PillButton variant="outline" size="sm" onPress={getTestTokens} isPending={faucet.isBusy}>
+          {faucet.isBusy ? "Minting…" : "Get test tokens"}
+        </PillButton>
+        <span className="font-mono text-[11px] text-dim">Base Sepolia testnet faucet</span>
+      </div>
+      <div className="mt-3 max-w-md">
+        <TxStatus status={faucet.status} error={faucet.error} />
+      </div>
+
+      <div className="mt-12">
+        <ActivityFeed />
+      </div>
     </div>
   );
 }

@@ -1,130 +1,195 @@
 @import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+/* Dark is the default theme; light is a full inversion driven by data-theme. */
+@custom-variant dark (&:is(:root:not([data-theme="light"]) *));
+@custom-variant light (&:is([data-theme="light"] *));
+
+/*
+  Brand palette. Names follow the design handoff, with three renames that would
+  otherwise collide with shadcn's own tokens:
+    handoff --muted   -> --dim         (a text colour, not a surface)
+    handoff --border  -> --line
+    handoff --border2 -> --line-strong
+*/
+:root {
+  --bg: #08090c;
+  --surface: #13161c;
+  --surface-2: #0e1115;
+  --line: #20242c;
+  --line-strong: #2e333d;
+  --text: #f4f2ed;
+  --body: #b9bdc6;
+  --dim: #868d99;
+  --seal: #c08c3e;
+  --seal-text: #d9ab63;
+  --seal-bg: #1d1810;
+  --seal-border: #6d5222;
+  --verify: #3f97a4;
+  --verify-text: #68bcc8;
+  --danger: #c4524b;
+  --danger-text: #e0817a;
+  --btn-bg: #f4f2ed;
+  --btn-fg: #14171d;
+  --btn-hover: #ffffff;
+  --track: #20242c;
+  --fill: #e8e6e1;
+  --glass: rgb(255 255 255 / 0.045);
+  --glass-border: rgb(255 255 255 / 0.11);
+  --pill-active: rgb(255 255 255 / 0.1);
+  --glow: rgb(192 140 62 / 0.2);
+  --glow-2: rgb(63 151 164 / 0.1);
+  --band-veil: rgb(8 9 12 / 0.3);
+  --placeholder: #656c7a;
+}
+
+:root[data-theme="light"] {
+  --bg: #f4f2ed;
+  --surface: #ffffff;
+  --surface-2: #efede7;
+  --line: #e2ded4;
+  --line-strong: #d8d4ca;
+  --text: #14171d;
+  --body: #3b414c;
+  --dim: #5f6672;
+  --seal: #c08c3e;
+  --seal-text: #8a6520;
+  --seal-bg: #faf3e6;
+  --seal-border: #dcc292;
+  --verify: #3f97a4;
+  --verify-text: #2a6f79;
+  --danger: #b4433c;
+  --danger-text: #9b332d;
+  --btn-bg: #14171d;
+  --btn-fg: #f4f2ed;
+  --btn-hover: #3b414c;
+  --track: #e2ded4;
+  --fill: #14171d;
+  --glass: rgb(255 255 255 / 0.7);
+  --glass-border: rgb(20 23 29 / 0.1);
+  --pill-active: rgb(20 23 29 / 0.07);
+  --glow: rgb(192 140 62 / 0.22);
+  --glow-2: rgb(63 151 164 / 0.1);
+  --band-veil: rgb(244 242 237 / 0.22);
+  --placeholder: #848c99;
+}
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-}
+  --font-sans: var(--font-sans), system-ui, sans-serif;
+  --font-serif: var(--font-serif), Georgia, serif;
+  --font-mono: var(--font-mono), ui-monospace, monospace;
+  --font-display: var(--font-display), system-ui, sans-serif;
 
-:root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
+  /* Brand palette as Tailwind colours: bg-surface, text-dim, border-glass-border… */
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-text: var(--text);
+  --color-body: var(--body);
+  --color-dim: var(--dim);
+  --color-seal: var(--seal);
+  --color-seal-text: var(--seal-text);
+  --color-seal-bg: var(--seal-bg);
+  --color-seal-border: var(--seal-border);
+  --color-verify: var(--verify);
+  --color-verify-text: var(--verify-text);
+  --color-danger: var(--danger);
+  --color-danger-text: var(--danger-text);
+  --color-btn-bg: var(--btn-bg);
+  --color-btn-fg: var(--btn-fg);
+  --color-btn-hover: var(--btn-hover);
+  --color-track: var(--track);
+  --color-fill: var(--fill);
+  --color-glass: var(--glass);
+  --color-glass-border: var(--glass-border);
+  --color-pill-active: var(--pill-active);
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* The photograph is dark in both themes, so anything sitting on it uses this
+     fixed pair rather than following --text / --btn-bg. */
+  --color-bone: #f4f2ed;
+  --color-ink: #14171d;
+
+  /* Shape rules: pills, cards, inputs. */
+  --radius-pill: 999px;
+  --radius-card: 22px;
+  --radius-feature: 26px;
+  --radius-field: 14px;
+
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-line;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
+
   html {
     @apply font-sans;
+  }
+
+  body {
+    @apply bg-bg text-body antialiased;
+    text-wrap: pretty;
+  }
+
+  /* One visible focus ring everywhere, in the text colour rather than gold. */
+  :focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 3px;
+  }
+
+  ::placeholder {
+    color: var(--placeholder);
+    opacity: 1;
+  }
+
+  /* Figures line up in tables and metric strips. */
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Glass surface: the one repeated material in the system. */
+@utility glass {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* Section rhythm from the handoff: clamped vertical padding, 32px gutters. */
+@utility section-y {
+  padding-block: clamp(88px, 13vh, 150px);
+}
+
+/* Gold underlined link used for addresses, hashes and explorer links. */
+@utility link-seal {
+  color: var(--seal-text);
+  border-bottom: 1px solid currentColor;
+  &:hover {
+    color: var(--text);
+  }
+}
+
+/*
+  Scroll reveal. The hiding rule is scoped to data-reveal-active, which the reveal
+  hook sets on mount, so content stays visible without JS and under reduced motion.
+*/
+:root[data-reveal-active] [data-reveal] {
+  opacity: 0;
+  transform: translateY(36px);
+  transition:
+    opacity 1s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root[data-reveal-active] [data-reveal][data-revealed] {
+  opacity: 1;
+  transform: none;
+}
+
+@keyframes borgen-spin {
+  to {
+    transform: rotate(360deg);
   }
 }

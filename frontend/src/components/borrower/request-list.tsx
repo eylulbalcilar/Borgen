@@ -1,104 +1,104 @@
 "use client";
 
+import { Panel, PanelHeader } from "@/components/ui/panel";
+import { PillButton } from "@/components/ui/pill-button";
+import { Badge, type Tone } from "@/components/ui/status";
 import { useAcceptAppraisal, useAppraisals, type Appraisal } from "@/lib/appraisals";
-import { Button } from "@/components/ui/button";
 import { formatAmount } from "@/lib/format";
 
-const STATUS_LABELS: Record<Appraisal["status"], string> = {
-  pending: "Waiting for an appraiser",
-  approved: "Valued, waiting for your acceptance",
-  rejected: "Rejected",
-  minted: "Collateral token issued",
+const STATUS: Record<Appraisal["status"], { label: string; tone: Tone }> = {
+  pending: { label: "Awaiting appraiser", tone: "seal" },
+  approved: { label: "Signed · accept to mint", tone: "seal" },
+  rejected: { label: "Rejected", tone: "danger" },
+  minted: { label: "Token issued", tone: "verify" },
 };
 
 export function RequestList() {
   const appraisals = useAppraisals();
   const accept = useAcceptAppraisal();
 
-  if (appraisals.isPending) {
-    return <p className="text-sm text-muted-foreground">Loading your requests…</p>;
-  }
-
-  if (appraisals.error) {
-    return (
-      <p role="alert" className="text-sm text-destructive">
-        {appraisals.error.message}
-      </p>
-    );
-  }
-
-  if (!appraisals.data?.length) {
-    return <p className="text-sm text-muted-foreground">No requests yet.</p>;
-  }
+  const items = appraisals.data ?? [];
 
   return (
-    <ul className="flex flex-col gap-4">
-      {appraisals.data.map((item) => (
-        <li key={item._id} className="flex flex-col gap-2 rounded-lg border border-border p-4">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 className="font-medium">{item.asset.title}</h3>
-            <span className="text-sm text-muted-foreground">{STATUS_LABELS[item.status]}</span>
-          </div>
+    <Panel>
+      <PanelHeader
+        eyebrow="Your requests"
+        title="Valuation pipeline"
+        aside={<span className="font-mono text-[11px] text-dim">{items.length} total</span>}
+      />
 
-          <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
-            <div className="flex gap-2">
-              <dt className="text-muted-foreground">Serial</dt>
-              <dd>{item.asset.serialNumber}</dd>
-            </div>
-            <div className="flex gap-2">
-              <dt className="text-muted-foreground">Requested</dt>
-              <dd>{formatAmount(BigInt(item.requestedValuation))}</dd>
-            </div>
-            {item.valuation && (
-              <div className="flex gap-2">
-                <dt className="text-muted-foreground">Valued at</dt>
-                <dd>{formatAmount(BigInt(item.valuation))}</dd>
+      {appraisals.isPending && (
+        <p className="px-6 py-[18px] font-mono text-[11.5px] text-dim">Loading your requests…</p>
+      )}
+
+      {appraisals.error && (
+        <p role="alert" className="px-6 py-[18px] font-mono text-[11.5px] text-danger-text">
+          {appraisals.error.message}
+        </p>
+      )}
+
+      {appraisals.isSuccess && items.length === 0 && (
+        <p className="px-6 py-[18px] font-mono text-[11.5px] text-dim">No requests yet.</p>
+      )}
+
+      <ul>
+        {items.map((item) => {
+          const status = STATUS[item.status];
+          const isAccepting = accept.isPending && accept.variables === item._id;
+
+          return (
+            <li key={item._id} className="grid gap-3 border-b border-glass-border px-6 py-[18px] last:border-b-0">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-[15.5px] font-semibold text-text">{item.asset.title}</h3>
+                  <p className="mt-1.5 font-mono text-[11px] text-dim">
+                    {item.asset.serialNumber}
+                    {item.tokenId && ` · token #${item.tokenId}`}
+                  </p>
+                </div>
+                <Badge tone={status.tone}>{status.label}</Badge>
               </div>
-            )}
-            {item.tokenId && (
-              <div className="flex gap-2">
-                <dt className="text-muted-foreground">Token</dt>
-                <dd>#{item.tokenId}</dd>
+
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <dl className="flex gap-6 font-mono text-[12.5px] text-body">
+                  <div className="flex gap-2">
+                    <dt className="text-dim">req</dt>
+                    <dd>{formatAmount(BigInt(item.requestedValuation), false)}</dd>
+                  </div>
+                  <div className="flex gap-2">
+                    <dt className="text-dim">appr</dt>
+                    <dd>{item.valuation ? formatAmount(BigInt(item.valuation), false) : "-"}</dd>
+                  </div>
+                </dl>
+
+                {item.status === "approved" && (
+                  <PillButton
+                    variant="seal"
+                    size="sm"
+                    isPending={isAccepting}
+                    onPress={() => accept.mutate(item._id)}
+                  >
+                    {isAccepting ? "Signing and minting…" : "Accept valuation"}
+                  </PillButton>
+                )}
               </div>
-            )}
-          </dl>
 
-          {item.status === "approved" && (
-            <div className="flex flex-col gap-2">
-              <Button
-                size="sm"
-                onPress={() => accept.mutate(item._id)}
-                isPending={accept.isPending && accept.variables === item._id}
-              >
-                {accept.isPending && accept.variables === item._id
-                  ? "Signing and minting…"
-                  : "Accept valuation"}
-              </Button>
-              <p className="text-sm text-muted-foreground">
-                Accepting signs the Neuro contract and issues the collateral token. This can take up
-                to a minute.
-              </p>
-            </div>
-          )}
+              {item.status === "approved" && (
+                <p className="font-mono text-[10.5px] leading-[1.7] text-dim">
+                  Accepting signs the Neuro contract and issues the collateral token. This can take
+                  up to a minute.
+                </p>
+              )}
 
-          {item.mintTxHash && (
-            <a
-              href={"https://sepolia.basescan.org/tx/" + item.mintTxHash}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm underline"
-            >
-              View mint transaction
-            </a>
-          )}
-
-          {accept.error && accept.variables === item._id && (
-            <p role="alert" className="text-sm text-destructive">
-              {accept.error.message}
-            </p>
-          )}
-        </li>
-      ))}
-    </ul>
+              {accept.error && accept.variables === item._id && (
+                <p role="alert" className="font-mono text-[11px] text-danger-text">
+                  {accept.error.message}
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </Panel>
   );
 }

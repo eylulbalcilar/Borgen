@@ -1,12 +1,16 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { ADDRESSES, loanAbi, stablecoinAbi } from "@/lib/contracts";
+import { maxUint256 } from "viem";
+import { PillButton } from "@/components/ui/pill-button";
+import { Badge } from "@/components/ui/status";
+import { useNow } from "@/components/ui/use-now";
+import { ADDRESSES, ASSET_SYMBOL, loanAbi, stablecoinAbi } from "@/lib/contracts";
 import { formatAmount, shortenAddress } from "@/lib/format";
 import { useTx } from "@/lib/tx";
-import { maxUint256 } from "viem";
 
-type Position = {
+const EXPLORER = "https://sepolia.basescan.org/address/";
+
+export type Position = {
   tokenId: bigint;
   borrower: string;
   debt: bigint;
@@ -22,12 +26,22 @@ type Props = {
   onSuccess: () => void;
 };
 
-export function PositionCard({ position, allowance, balance, onSuccess }: Props) {
+// One table row. The grid matches the header row in liquidations-panel.
+export const ROW_GRID =
+  "grid min-w-[1090px] grid-cols-[140px_minmax(180px,1fr)_130px_130px_120px_120px_130px] gap-4";
+
+export function PositionRow({ position, allowance, balance, onSuccess }: Props) {
   const tx = useTx(onSuccess);
+
+  const now = useNow();
 
   const needsApproval = allowance < position.debt;
   const notEnoughFunds = balance < position.debt;
-  const isOverdue = position.dueAt * 1000 < Date.now();
+  const isOverdue = now !== null && position.dueAt * 1000 < now;
+
+  // Debt against current collateral value; 80% is the liquidation threshold.
+  const health =
+    position.valuation > 0n ? Number((position.debt * 10_000n) / position.valuation) / 100 : 0;
 
   async function liquidate() {
     tx.clear();
@@ -50,69 +64,78 @@ export function PositionCard({ position, allowance, balance, onSuccess }: Props)
     });
   }
 
+  const due = new Date(position.dueAt * 1000).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+
   return (
-    <li className="flex flex-col gap-3 rounded-lg border border-border p-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="font-medium">Token #{position.tokenId.toString()}</h3>
-        <span className="text-sm text-muted-foreground">
-          {position.isLiquidatable ? (isOverdue ? "Overdue" : "Below threshold") : "Healthy"}
-        </span>
+    <li className={`${ROW_GRID} items-center border-b border-line px-6 py-[15px] last:border-b-0`}>
+      <a
+        href={EXPLORER + ADDRESSES.collateralNft}
+        target="_blank"
+        rel="noreferrer"
+        className="link-seal w-fit font-mono text-[12.5px]"
+      >
+        Token #{position.tokenId.toString()} ↗
+      </a>
+
+      <div className="min-w-0">
+        <a
+          href={EXPLORER + position.borrower}
+          target="_blank"
+          rel="noreferrer"
+          className="link-seal font-mono text-[11.5px]"
+        >
+          <span aria-hidden="true">{shortenAddress(position.borrower)} ↗</span>
+          <span className="sr-only">Borrower {position.borrower}</span>
+        </a>
       </div>
 
-      <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
-        <div className="flex gap-2">
-          <dt className="text-muted-foreground">Debt</dt>
-          <dd>{formatAmount(position.debt)}</dd>
-        </div>
-        <div className="flex gap-2">
-          <dt className="text-muted-foreground">Collateral value</dt>
-          <dd>{formatAmount(position.valuation)}</dd>
-        </div>
-        <div className="flex gap-2">
-          <dt className="text-muted-foreground">Due</dt>
-          <dd>{new Date(position.dueAt * 1000).toLocaleDateString()}</dd>
-        </div>
-        <div className="flex gap-2">
-          <dt className="text-muted-foreground">Borrower</dt>
-          <dd>
-            <span aria-hidden="true">{shortenAddress(position.borrower)}</span>
-            <span className="sr-only">{position.borrower}</span>
-          </dd>
-        </div>
-      </dl>
+      <span className="text-right font-mono text-[13px] text-text">
+        {formatAmount(position.debt, false)}
+      </span>
+      <span className="text-right font-mono text-[13px]">
+        {formatAmount(position.valuation, false)}
+      </span>
+      <span
+        className={`text-right font-mono text-xs ${isOverdue ? "text-danger-text" : "text-dim"}`}
+      >
+        {due}
+      </span>
+      <span className="justify-self-end">
+        <Badge tone={position.isLiquidatable ? "danger" : "verify"}>
+          {position.isLiquidatable ? (isOverdue ? "Overdue" : "At risk") : "Healthy"}
+          <span className="sr-only">, debt at {health.toFixed(0)}% of collateral value</span>
+        </Badge>
+      </span>
 
-      {position.isLiquidatable && (
-        <>
-          <p className="text-sm text-muted-foreground">
-            Repaying the debt transfers the collateral token to you.
-          </p>
-          <div>
-            <Button
-              size="sm"
-              onPress={liquidate}
-              isDisabled={notEnoughFunds && !needsApproval}
-              isPending={tx.isBusy}
-            >
-              {tx.isBusy
-                ? tx.status === "signing"
-                  ? "Check your wallet…"
-                  : "Confirming…"
-                : needsApproval
-                  ? "Approve mUSD"
-                  : "Liquidate"}
-            </Button>
-          </div>
-          {notEnoughFunds && (
-            <p role="alert" className="text-sm text-destructive">
-              You need {formatAmount(position.debt)} to liquidate this position.
-            </p>
-          )}
-        </>
-      )}
+      <span className="justify-self-end">
+        {position.isLiquidatable ? (
+          <PillButton
+            variant="danger"
+            size="sm"
+            onPress={liquidate}
+            isDisabled={notEnoughFunds && !needsApproval}
+            isPending={tx.isBusy}
+          >
+            {tx.isBusy
+              ? tx.status === "signing"
+                ? "Check wallet…"
+                : "Confirming…"
+              : needsApproval
+                ? `Approve ${ASSET_SYMBOL}`
+                : "Liquidate"}
+          </PillButton>
+        ) : (
+          <span className="font-mono text-[10.5px] text-dim">Not eligible</span>
+        )}
+      </span>
 
-      {tx.error && (
-        <p role="alert" className="text-sm text-destructive">
-          {tx.error}
+      {(tx.error ?? (notEnoughFunds && position.isLiquidatable)) && (
+        <p role="alert" className="col-span-full font-mono text-[11px] text-danger-text">
+          {tx.error ?? `You need ${formatAmount(position.debt)} to liquidate this position.`}
         </p>
       )}
     </li>

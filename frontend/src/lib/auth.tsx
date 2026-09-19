@@ -15,6 +15,10 @@ import { api, ApiError, type ApiOptions } from "./api";
 
 const STORAGE_KEY = "borgen.session";
 
+// Exported so the session keeper can tell a reload from a fresh connection
+// without waiting for this provider's restore effect.
+export const SESSION_STORAGE_KEY = STORAGE_KEY;
+
 type Session = { token: string; wallet: string };
 type AuthStatus = "signed-out" | "signing-in" | "signed-in";
 
@@ -45,7 +49,7 @@ function readableError(err: unknown): string {
   if (err && typeof err === "object" && "shortMessage" in err && typeof err.shortMessage === "string") {
     return err.shortMessage;
   }
-  return err instanceof Error ? err.message : "Sign-in failed";
+  return err instanceof Error ? err.message : "Could not open the session";
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -93,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         version: "1",
         chainId,
         nonce,
-        statement: "Sign in to Borgen",
+        statement: "Open a Borgen session",
       });
 
       const signature = await signMessageAsync({ message });

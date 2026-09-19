@@ -62,3 +62,21 @@ export function usePoolData() {
     allowance: allowance ?? 0n,
   };
 }
+
+// Public pool stats for the landing page. No wallet needed.
+export function usePoolStats() {
+  const query = useReadContracts({
+    contracts: [
+      { ...pool, functionName: "totalAssets" },
+      { ...pool, functionName: "totalBorrowed" },
+    ],
+    blockTag: "latest",
+    query: { refetchInterval: 30_000 },
+  });
+
+  const [totalAssets, totalBorrowed] = (query.data ?? []).map((item) =>
+    item.status === "success" ? (item.result as bigint) : undefined,
+  );
+
+  return { ...query, totalAssets, totalBorrowed };
+}
