@@ -14,6 +14,10 @@ let now = Date.now();
 let timer: ReturnType<typeof setInterval> | undefined;
 
 function subscribe(listener: () => void) {
+  // The snapshot only advances while someone is listening, so it can be stale
+  // by however long the page went without one. Refresh before the first
+  // subscriber reads it, otherwise a due date is compared to an old clock.
+  if (listeners.size === 0) now = Date.now();
   listeners.add(listener);
   timer ??= setInterval(() => {
     now = Date.now();

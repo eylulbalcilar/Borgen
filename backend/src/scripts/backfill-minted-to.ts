@@ -7,7 +7,11 @@ import { connectDatabase } from "../config/db.js";
 import { AppraisalRequestModel } from "../models/AppraisalRequest.js";
 import { mintRecipient, ownerOfCollateral } from "../services/chain.js";
 
-const POOL = (process.env.LENDING_POOL_ADDRESS ?? "").toLowerCase();
+// Required: without it the escrow check below silently never matches, and a
+// token held by the pool would be recorded as if the pool had minted it.
+const poolAddress = process.env.LENDING_POOL_ADDRESS;
+if (!poolAddress) throw new Error("LENDING_POOL_ADDRESS is not set");
+const POOL = poolAddress.toLowerCase();
 
 await connectDatabase(process.env.MONGODB_URI);
 

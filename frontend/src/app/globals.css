@@ -1,16 +1,10 @@
 @import "tailwindcss";
 
-/* Dark is the default theme; light is a full inversion driven by data-theme. */
+
 @custom-variant dark (&:is(:root:not([data-theme="light"]) *));
 @custom-variant light (&:is([data-theme="light"] *));
 
-/*
-  Brand palette. Names follow the design handoff, with three renames that would
-  otherwise collide with shadcn's own tokens:
-    handoff --muted   -> --dim         (a text colour, not a surface)
-    handoff --border  -> --line
-    handoff --border2 -> --line-strong
-*/
+
 :root {
   --bg: #08090c;
   --surface: #13161c;
@@ -79,7 +73,7 @@
   --font-mono: var(--font-mono), ui-monospace, monospace;
   --font-display: var(--font-display), system-ui, sans-serif;
 
-  /* Brand palette as Tailwind colours: bg-surface, text-dim, border-glass-border… */
+
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);

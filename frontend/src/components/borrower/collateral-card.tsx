@@ -8,7 +8,7 @@ import { PillButton } from "@/components/ui/pill-button";
 import { Badge, TxStatus } from "@/components/ui/status";
 import type { Collateral } from "@/lib/collateral";
 import { ADDRESSES, ASSET_SYMBOL, collateralNftAbi, loanAbi, stablecoinAbi } from "@/lib/contracts";
-import { formatAmount, parseAmount } from "@/lib/format";
+import { formatAmount, parseAmount, toAmountInput } from "@/lib/format";
 import { useTx } from "@/lib/tx";
 
 type Props = {
@@ -20,14 +20,16 @@ type Props = {
   onSuccess: () => void;
 };
 
-function toInput(value: bigint) {
-  return (Number(value) / 1_000_000).toFixed(2);
-}
+type Action = "approve" | "borrow" | "repay";
 
 export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuccess }: Props) {
   const [input, setInput] = useState("");
+  // Tracks which leg is in flight, so an approval does not wipe the amount the
+  // borrower already typed for the borrow that follows it.
+  const [action, setAction] = useState<Action>("borrow");
+
   const tx = useTx(() => {
-    setInput("");
+    if (action === "borrow") setInput("");
     onSuccess();
   });
 
@@ -57,6 +59,7 @@ export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuc
 
     // The pool pulls the token, so it must be approved first.
     if (needsTokenApproval) {
+      setAction("approve");
       await tx.send({
         address: ADDRESSES.collateralNft,
         abi: collateralNftAbi,
@@ -66,6 +69,7 @@ export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuc
       return;
     }
 
+    setAction("borrow");
     await tx.send({
       address: ADDRESSES.lendingPool,
       abi: loanAbi,
@@ -78,6 +82,7 @@ export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuc
     tx.clear();
 
     if (needsAssetApproval) {
+      setAction("approve");
       await tx.send({
         address: ADDRESSES.stablecoin,
         abi: stablecoinAbi,
@@ -87,6 +92,7 @@ export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuc
       return;
     }
 
+    setAction("repay");
     await tx.send({
       address: ADDRESSES.lendingPool,
       abi: loanAbi,
@@ -170,7 +176,7 @@ export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuc
               unit={ASSET_SYMBOL}
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              onMax={() => setInput(toInput(item.maxBorrow - item.debt))}
+              onMax={() => setInput(toAmountInput(item.maxBorrow - item.debt))}
               aria-invalid={exceedsLtv || undefined}
             />
             <PillButton onPress={borrow} isDisabled={!amount || exceedsLtv} isPending={tx.isBusy}>

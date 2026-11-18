@@ -13,15 +13,18 @@ const REST_TRANSFORM = "translate3d(0%,0%,0) scale(1.16)";
 */
 export function HeroMedia() {
   const mediaRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const media = mediaRef.current;
-    if (!media) return;
+    const wrapper = frameRef.current;
+    if (!media || !wrapper) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     let target = 0;
     let eased = 0;
     let frame = 0;
+    let visible = false;
 
     const step = (rate: number) => {
       eased += (target - eased) * rate;
@@ -36,7 +39,9 @@ export function HeroMedia() {
       const max = Math.max(1, document.body.scrollHeight - window.innerHeight);
       target = Math.min(1, Math.max(0, window.scrollY / max));
       // Scrolling catches up fast; the idle frame loop eases in more slowly.
-      step(0.4);
+      // Target keeps tracking off screen so re-entry starts from the right place,
+      // but nothing is written to the element while it cannot be seen.
+      if (visible) step(0.4);
     };
 
     const tick = () => {
@@ -44,20 +49,33 @@ export function HeroMedia() {
       frame = requestAnimationFrame(tick);
     };
 
+    // The drift is pointless once the hero has scrolled away, and a permanent
+    // frame loop keeps the compositor busy on a layer nobody can see.
+    const observer = new IntersectionObserver(([entry]) => {
+      visible = entry?.isIntersecting ?? false;
+      if (visible) {
+        if (!frame) frame = requestAnimationFrame(tick);
+      } else if (frame) {
+        cancelAnimationFrame(frame);
+        frame = 0;
+      }
+    });
+    observer.observe(wrapper);
+
     readScroll();
-    frame = requestAnimationFrame(tick);
     window.addEventListener("scroll", readScroll, { passive: true });
     window.addEventListener("resize", readScroll, { passive: true });
 
     return () => {
-      cancelAnimationFrame(frame);
+      observer.disconnect();
+      if (frame) cancelAnimationFrame(frame);
       window.removeEventListener("scroll", readScroll);
       window.removeEventListener("resize", readScroll);
     };
   }, []);
 
   return (
-    <div aria-hidden="true" className="absolute inset-0 overflow-hidden">
+    <div ref={frameRef} aria-hidden="true" className="absolute inset-0 overflow-hidden">
       <div
         ref={mediaRef}
         className="absolute inset-x-0 top-0 h-[140%] origin-[50%_40%] will-change-transform"

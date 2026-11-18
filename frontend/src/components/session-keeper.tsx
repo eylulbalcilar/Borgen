@@ -24,23 +24,28 @@ function hasStoredSession(address: string): boolean {
   a loop. The wallet pill offers the retry in that case.
 */
 export function SessionKeeper() {
-  const { address, isConnected } = useAccount();
+  const { address, chain, isConnected } = useAccount();
   const { status, signIn } = useAuth();
   const attempted = useRef<string>(undefined);
 
   useEffect(() => {
-    if (!isConnected || !address) {
-      // Reconnecting the same address should ask again.
+    // chain is undefined on a network the app is not configured for. The
+    // backend rejects a message signed there, so asking for one would burn the
+    // single attempt on a signature that cannot succeed.
+    if (!isConnected || !address || !chain) {
+      // Clearing here also means fixing the network starts a fresh attempt.
       attempted.current = undefined;
       return;
     }
     if (status !== "signed-out") return;
-    if (attempted.current === address) return;
+
+    const key = `${address}:${chain.id}`;
+    if (attempted.current === key) return;
     if (hasStoredSession(address)) return;
 
-    attempted.current = address;
+    attempted.current = key;
     void signIn();
-  }, [isConnected, address, status, signIn]);
+  }, [isConnected, address, chain, status, signIn]);
 
   return null;
 }

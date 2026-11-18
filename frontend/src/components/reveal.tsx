@@ -6,17 +6,23 @@ const STAGGER_MS = 80;
 const MAX_STAGGER_STEPS = 5;
 
 /*
+  Inlined in <head> so reveal blocks are hidden before the first paint. Setting
+  the attribute after hydration instead would let content above the fold paint,
+  then fade out and back in. It stays a script rather than server markup so that
+  without JavaScript, where nothing would ever reveal them, the blocks are
+  simply visible.
+*/
+export const revealScript = `try{if(!matchMedia("(prefers-reduced-motion: reduce)").matches)document.documentElement.setAttribute("data-reveal-active","")}catch(e){}`;
+
+/*
   Releases [data-reveal] blocks as they enter the viewport. Mounted once in the
   layout: it re-scans on DOM changes so blocks added by a route change are covered.
-  Does nothing under reduced motion, which also leaves the content visible because
-  globals.css only hides while data-reveal-active is set.
+  Does nothing under reduced motion, where revealScript leaves the hiding
+  attribute unset and the content is visible from the start.
 */
 export function Reveal() {
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    const root = document.documentElement;
-    root.setAttribute("data-reveal-active", "");
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -58,7 +64,6 @@ export function Reveal() {
     return () => {
       mutations.disconnect();
       observer.disconnect();
-      root.removeAttribute("data-reveal-active");
     };
   }, []);
 

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { display, mono, sans, serif } from "./fonts";
 import { Providers } from "./providers";
-import { Reveal } from "@/components/reveal";
+import { Reveal, revealScript } from "@/components/reveal";
 import { SessionKeeper } from "@/components/session-keeper";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -17,8 +17,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${serif.variable} ${sans.variable} ${mono.variable} ${display.variable} h-full`} suppressHydrationWarning>
       <head>
-        {/* Runs before the first paint, so the stored theme never flashes. */}
+        {/* Both run before the first paint, so neither the theme nor the
+            reveal blocks flash into their starting state. */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: revealScript }} />
       </head>
       <body className="flex min-h-full flex-col">
         <Providers>

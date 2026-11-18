@@ -6,7 +6,7 @@ import { Panel, PanelHeader } from "@/components/ui/panel";
 import { PillButton } from "@/components/ui/pill-button";
 import { TxStatus } from "@/components/ui/status";
 import { ADDRESSES, ASSET_SYMBOL, lendingPoolAbi } from "@/lib/contracts";
-import { formatAmount, parseAmount } from "@/lib/format";
+import { formatAmount, parseAmount, toAmountInput } from "@/lib/format";
 import { useTx } from "@/lib/tx";
 
 type Props = {
@@ -60,7 +60,7 @@ export function WithdrawForm({ shares, position, available, onSuccess }: Props) 
           unit={ASSET_SYMBOL}
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          onMax={() => setInput((Number(position) / 1_000_000).toFixed(2))}
+          onMax={() => setInput(toAmountInput(position))}
           aria-invalid={tooLarge || undefined}
         />
 

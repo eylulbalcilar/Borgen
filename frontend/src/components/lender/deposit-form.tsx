@@ -7,7 +7,7 @@ import { Panel, PanelHeader } from "@/components/ui/panel";
 import { PillButton } from "@/components/ui/pill-button";
 import { TxStatus } from "@/components/ui/status";
 import { ADDRESSES, ASSET_SYMBOL, lendingPoolAbi, stablecoinAbi } from "@/lib/contracts";
-import { formatAmount, parseAmount } from "@/lib/format";
+import { formatAmount, parseAmount, toAmountInput } from "@/lib/format";
 import { useTx } from "@/lib/tx";
 
 type Props = {
@@ -67,7 +67,7 @@ export function DepositForm({ balance, allowance, onSuccess }: Props) {
           unit={ASSET_SYMBOL}
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          onMax={() => setInput((Number(balance) / 1_000_000).toFixed(2))}
+          onMax={() => setInput(toAmountInput(balance))}
           aria-invalid={tooLarge || undefined}
         />
 

@@ -11,6 +11,13 @@ export function formatAmount(value: bigint | undefined, withSymbol = true): stri
   return withSymbol ? `${formatted} ${ASSET_SYMBOL}` : formatted;
 }
 
+// Exact value for an amount field: full precision and no grouping, so it round
+// trips through parseAmount. Rounding here would push MAX past the very cap it
+// is meant to hit.
+export function toAmountInput(value: bigint): string {
+  return formatUnits(value, ASSET_DECIMALS);
+}
+
 // Returns undefined when the input is not a usable positive amount.
 export function parseAmount(input: string): bigint | undefined {
   const trimmed = input.trim();
