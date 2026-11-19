@@ -20,7 +20,7 @@ type Props = {
   onSuccess: () => void;
 };
 
-type Action = "approve" | "borrow" | "repay";
+type Action = "approve" | "borrow" | "repay" | "payDown" | "renew";
 
 export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuccess }: Props) {
   const [input, setInput] = useState("");
@@ -28,8 +28,11 @@ export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuc
   // borrower already typed for the borrow that follows it.
   const [action, setAction] = useState<Action>("borrow");
 
+  // Which button started the transaction in flight, so only that one shows it.
+  const [origin, setOrigin] = useState<Exclude<Action, "approve">>("borrow");
+
   const tx = useTx(() => {
-    if (action === "borrow") setInput("");
+    if (action === "borrow" || action === "payDown") setInput("");
     onSuccess();
   });
 
@@ -46,7 +49,9 @@ export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuc
   const isHeld = Boolean(wallet && holder && holder.toLowerCase() === wallet.toLowerCase());
 
   const amount = parseAmount(input);
-  const exceedsLtv = amount !== undefined && amount > item.maxBorrow;
+  const exceedsLtv = !item.hasLoan && amount !== undefined && amount > item.maxBorrow;
+  // Paying the whole debt goes through repay, which also returns the token.
+  const coversDebt = item.hasLoan && amount !== undefined && amount >= item.debt;
   const needsTokenApproval = !item.isApproved && !item.isEscrowed;
   const needsAssetApproval = allowance < item.debt;
 
@@ -58,6 +63,7 @@ export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuc
     tx.clear();
 
     // The pool pulls the token, so it must be approved first.
+    setOrigin("borrow");
     if (needsTokenApproval) {
       setAction("approve");
       await tx.send({
@@ -78,19 +84,25 @@ export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuc
     });
   }
 
-  async function repay() {
+  // Every payment is pulled by the pool, so it needs an allowance first.
+  // Returns true when it sent the approval instead of the payment.
+  async function approveAssetFirst(from: Exclude<Action, "approve">) {
     tx.clear();
+    setOrigin(from);
+    if (!needsAssetApproval) return false;
 
-    if (needsAssetApproval) {
-      setAction("approve");
-      await tx.send({
-        address: ADDRESSES.stablecoin,
-        abi: stablecoinAbi,
-        functionName: "approve",
-        args: [ADDRESSES.lendingPool, maxUint256],
-      });
-      return;
-    }
+    setAction("approve");
+    await tx.send({
+      address: ADDRESSES.stablecoin,
+      abi: stablecoinAbi,
+      functionName: "approve",
+      args: [ADDRESSES.lendingPool, maxUint256],
+    });
+    return true;
+  }
+
+  async function repay() {
+    if (await approveAssetFirst("repay")) return;
 
     setAction("repay");
     await tx.send({
@@ -101,7 +113,37 @@ export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuc
     });
   }
 
+  async function payDown() {
+    if (!amount || coversDebt) return;
+    if (await approveAssetFirst("payDown")) return;
+
+    setAction("payDown");
+    await tx.send({
+      address: ADDRESSES.lendingPool,
+      abi: loanAbi,
+      functionName: "repayPartial",
+      args: [item.tokenId, amount],
+    });
+  }
+
+  async function renew() {
+    if (await approveAssetFirst("renew")) return;
+
+    setAction("renew");
+    await tx.send({
+      address: ADDRESSES.lendingPool,
+      abi: loanAbi,
+      functionName: "renew",
+      args: [item.tokenId],
+    });
+  }
+
   const busyLabel = tx.status === "signing" ? "Check your wallet…" : "Confirming…";
+  const approveLabel = `Approve ${ASSET_SYMBOL}`;
+  // The label a button shows: busy if it started the transaction in flight,
+  // the approval step if one is still needed, otherwise its own action.
+  const labelFor = (from: Exclude<Action, "approve">, text: string) =>
+    tx.isBusy && origin === from ? busyLabel : needsAssetApproval ? approveLabel : text;
 
   const metrics = [
     { k: "Appraised", v: formatAmount(item.valuation, false) },
@@ -122,8 +164,8 @@ export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuc
             Token #{item.tokenId.toString()}
           </p>
         </div>
-        <Badge tone={item.hasLoan ? "seal" : "verify"} dot>
-          {item.hasLoan ? "Locked · borrowed" : "Signed appraisal"}
+        <Badge tone={item.inAuction ? "danger" : item.hasLoan ? "seal" : "verify"} dot>
+          {item.inAuction ? "Up for sale" : item.hasLoan ? "Locked · borrowed" : "Signed appraisal"}
         </Badge>
       </div>
 
@@ -160,14 +202,61 @@ export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuc
             </span>
           </p>
         ) : item.hasLoan ? (
-          <div className="flex flex-wrap items-center gap-2.5">
-            <PillButton onPress={repay} isPending={tx.isBusy}>
-              {tx.isBusy ? busyLabel : needsAssetApproval ? `Approve ${ASSET_SYMBOL}` : "Repay and unlock"}
-            </PillButton>
-            <span className="font-mono text-[11.5px] text-dim">
-              {formatAmount(item.debt)} incl. interest
-            </span>
-          </div>
+          <>
+            {item.inAuction && (
+              <p
+                role="alert"
+                className="grid grid-cols-[auto_1fr] items-start gap-3 rounded-field border border-seal-border bg-seal-bg px-[13px] py-3"
+              >
+                <span aria-hidden="true" className="mt-1.5 block size-[7px] bg-seal" />
+                <span className="text-[13px] leading-[1.6] text-seal-text">
+                  This loan is overdue or no longer covered by its collateral, so the asset is up
+                  for sale. Repaying the full debt before someone buys it takes it back. If it
+                  sells, whatever is left after the debt is yours to collect.
+                </span>
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <PillButton
+                onPress={repay}
+                isPending={tx.isBusy && origin === "repay"}
+                isDisabled={tx.isBusy && origin !== "repay"}
+              >
+                {labelFor("repay", "Repay and unlock")}
+              </PillButton>
+              <span className="font-mono text-[11.5px] text-dim">
+                {formatAmount(item.debt)} incl. interest
+              </span>
+            </div>
+            {!item.inAuction && (
+              <div className="flex flex-wrap gap-2.5">
+                <AmountInput
+                  className="min-w-[200px] flex-1"
+                  label={`Amount to pay down on token ${item.tokenId}`}
+                  unit={ASSET_SYMBOL}
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  aria-invalid={coversDebt || undefined}
+                />
+                <PillButton
+                  variant="outline"
+                  onPress={payDown}
+                  isPending={tx.isBusy && origin === "payDown"}
+                  isDisabled={!amount || coversDebt || (tx.isBusy && origin !== "payDown")}
+                >
+                  {labelFor("payDown", "Pay down")}
+                </PillButton>
+                <PillButton
+                  variant="outline"
+                  onPress={renew}
+                  isPending={tx.isBusy && origin === "renew"}
+                  isDisabled={tx.isBusy && origin !== "renew"}
+                >
+                  {labelFor("renew", "Renew term")}
+                </PillButton>
+              </div>
+            )}
+          </>
         ) : (
           <div className="flex flex-wrap gap-2.5">
             <AmountInput
@@ -188,6 +277,11 @@ export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuc
         {exceedsLtv && (
           <p role="alert" className="font-mono text-[11px] text-danger-text">
             Maximum loan for this asset is {formatAmount(item.maxBorrow)}.
+          </p>
+        )}
+        {coversDebt && (
+          <p role="alert" className="font-mono text-[11px] text-danger-text">
+            That covers the whole debt. Use Repay and unlock to close the loan.
           </p>
         )}
         <TxStatus status={tx.status} error={tx.error} />

@@ -9,6 +9,7 @@ import { EmptyState, HeaderStat, ScreenHeader } from "@/components/ui/panel";
 import { PillButton } from "@/components/ui/pill-button";
 import { TxStatus } from "@/components/ui/status";
 import { useAppraisals } from "@/lib/appraisals";
+import { ClaimNotice } from "@/components/claim-notice";
 import { useCollateral } from "@/lib/collateral";
 import { ADDRESSES, stablecoinAbi } from "@/lib/contracts";
 import { formatAmount } from "@/lib/format";
@@ -65,6 +66,8 @@ export function BorrowerPanel() {
           </dl>
         }
       />
+
+      <ClaimNotice amount={pool.claimable} onSuccess={refresh} />
 
       <section aria-labelledby="collateral-heading" className="mt-8">
         <h2 id="collateral-heading" className="sr-only">

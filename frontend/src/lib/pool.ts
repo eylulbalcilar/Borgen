@@ -1,7 +1,7 @@
 "use client";
 
-import { useAccount, useReadContracts } from "wagmi";
-import { ADDRESSES, lendingPoolAbi, stablecoinAbi } from "./contracts";
+import { useAccount, useReadContract, useReadContracts } from "wagmi";
+import { ADDRESSES, GENERAL_ASSET_CLASS, lendingPoolAbi, stablecoinAbi } from "./contracts";
 
 const pool = { address: ADDRESSES.lendingPool, abi: lendingPoolAbi } as const;
 
@@ -14,6 +14,8 @@ export function usePoolData() {
       { ...pool, functionName: "totalAssets" },
       { ...pool, functionName: "totalShares" },
       { ...pool, functionName: "totalBorrowed" },
+      { ...pool, functionName: "cash" },
+      { ...pool, functionName: "claimable", args: [address ?? "0x"] },
       { ...pool, functionName: "sharesOf", args: [address ?? "0x"] },
       {
         address: ADDRESSES.stablecoin,
@@ -37,18 +39,20 @@ export function usePoolData() {
     },
   });
 
-  const [totalAssets, totalShares, totalBorrowed, shares, balance, allowance] = (
+  const [totalAssets, totalShares, totalBorrowed, cash, claimable, shares, balance, allowance] = (
     query.data ?? []
   ).map((item) => (item.status === "success" ? (item.result as bigint) : undefined));
 
-  // Value of the lender's shares in mUSD.
+  // Value of the lender's shares in mUSD. The +1 on each side mirrors the
+  // pool's own share maths, so this is the amount a withdrawal pays out.
   const position =
-    totalShares !== undefined && totalShares > 0n && shares !== undefined && totalAssets !== undefined
-      ? (shares * totalAssets) / totalShares
+    totalShares !== undefined && shares !== undefined && totalAssets !== undefined
+      ? (shares * (totalAssets + 1n)) / (totalShares + 1n)
       : 0n;
 
-  const available =
-    totalAssets !== undefined && totalBorrowed !== undefined ? totalAssets - totalBorrowed : undefined;
+  // Idle money in the pool. Total assets also count interest that has accrued
+  // but not been paid, which cannot be lent or withdrawn yet.
+  const available = cash;
 
   return {
     ...query,
@@ -57,6 +61,8 @@ export function usePoolData() {
     totalBorrowed,
     available,
     shares: shares ?? 0n,
+    // Sale surplus or fees waiting for this wallet to collect.
+    claimable: claimable ?? 0n,
     position,
     balance: balance ?? 0n,
     allowance: allowance ?? 0n,
@@ -79,4 +85,15 @@ export function usePoolStats() {
   );
 
   return { ...query, totalAssets, totalBorrowed };
+}
+
+// Loan-to-value ratio the pool applies, in basis points. Undefined until read.
+export function useLtvBps() {
+  const query = useReadContract({
+    ...pool,
+    functionName: "assetClasses",
+    args: [GENERAL_ASSET_CLASS],
+  });
+
+  return query.data === undefined ? undefined : BigInt(query.data[1]);
 }

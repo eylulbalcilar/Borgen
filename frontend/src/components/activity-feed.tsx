@@ -17,7 +17,10 @@ const LABELS: Record<Activity["type"], string> = {
   withdrawn: "Withdrawn",
   borrowed: "Borrowed",
   repaid: "Repaid",
-  liquidated: "Liquidated",
+  partially_repaid: "Paid down",
+  renewed: "Loan renewed",
+  auction_started: "Sale opened",
+  liquidated: "Bought in sale",
 };
 
 // Gold marks a valuation, teal a settled movement, red a loss of collateral.
@@ -32,6 +35,9 @@ const DOTS: Record<Activity["type"], string> = {
   withdrawn: "bg-verify",
   borrowed: "bg-verify",
   repaid: "bg-verify",
+  partially_repaid: "bg-verify",
+  renewed: "bg-verify",
+  auction_started: "bg-danger",
   liquidated: "bg-danger",
 };
 

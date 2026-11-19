@@ -5,7 +5,8 @@ import { AmountInput, TextArea } from "@/components/ui/field";
 import { PillButton } from "@/components/ui/pill-button";
 import { Badge } from "@/components/ui/status";
 import { useApproveAppraisal, useRejectAppraisal, type Appraisal } from "@/lib/appraisals";
-import { ASSET_SYMBOL, BPS, LTV_BPS } from "@/lib/contracts";
+import { ASSET_SYMBOL, BPS } from "@/lib/contracts";
+import { useLtvBps } from "@/lib/pool";
 import { formatAmount, parseAmount, shortenAddress } from "@/lib/format";
 
 const EXPLORER = "https://sepolia.basescan.org/address/";
@@ -24,7 +25,8 @@ export function ReviewCard({ request }: { request: Appraisal }) {
   const amount = parseAmount(valuation);
   const isBusy = approve.isPending || reject.isPending;
   const error = approve.error ?? reject.error;
-  const maxLoan = amount === undefined ? undefined : (amount * LTV_BPS) / BPS;
+  const ltvBps = useLtvBps();
+  const maxLoan = amount === undefined || ltvBps === undefined ? undefined : (amount * ltvBps) / BPS;
 
   return (
     <li className="glass grid grid-cols-[repeat(auto-fit,minmax(min(340px,100%),1fr))] overflow-hidden rounded-[24px]">

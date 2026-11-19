@@ -11,6 +11,9 @@ export const ACTIVITY_TYPES = [
   "withdrawn",
   "borrowed",
   "repaid",
+  "partially_repaid",
+  "renewed",
+  "auction_started",
   "liquidated",
 ] as const;
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];

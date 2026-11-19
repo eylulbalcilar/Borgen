@@ -14,6 +14,9 @@ export type ActivityType =
   | "withdrawn"
   | "borrowed"
   | "repaid"
+  | "partially_repaid"
+  | "renewed"
+  | "auction_started"
   | "liquidated";
 
 export type Activity = {

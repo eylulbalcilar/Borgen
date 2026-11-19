@@ -74,13 +74,52 @@ function toActivity(log: PoolLog, occurredAt: Date | undefined): ActivityInput {
         tokenId: log.args.tokenId.toString(),
         metadata: { debt: log.args.debt.toString(), block },
       };
-    case "Liquidated":
+    case "PartiallyRepaid":
+      return {
+        ...base,
+        type: "partially_repaid",
+        wallet: log.args.borrower,
+        tokenId: log.args.tokenId.toString(),
+        metadata: {
+          amount: log.args.amount.toString(),
+          remainingDebt: log.args.remainingDebt.toString(),
+          block,
+        },
+      };
+    case "Renewed":
+      return {
+        ...base,
+        type: "renewed",
+        wallet: log.args.borrower,
+        tokenId: log.args.tokenId.toString(),
+        metadata: { amount: log.args.interestPaid.toString(), dueAt: log.args.dueAt.toString(), block },
+      };
+    case "AuctionStarted":
+      return {
+        ...base,
+        type: "auction_started",
+        wallet: log.args.keeper,
+        tokenId: log.args.tokenId.toString(),
+        metadata: {
+          amount: log.args.startPrice.toString(),
+          floorPrice: log.args.floorPrice.toString(),
+          endsAt: log.args.endsAt.toString(),
+          block,
+        },
+      };
+    // The sale closes the loan, so it is stored as the liquidation itself.
+    case "AuctionSettled":
       return {
         ...base,
         type: "liquidated",
-        wallet: log.args.liquidator,
+        wallet: log.args.buyer,
         tokenId: log.args.tokenId.toString(),
-        metadata: { debt: log.args.debt.toString(), block },
+        metadata: {
+          amount: log.args.price.toString(),
+          debt: log.args.debtRepaid.toString(),
+          surplus: log.args.borrowerSurplus.toString(),
+          block,
+        },
       };
   }
 }

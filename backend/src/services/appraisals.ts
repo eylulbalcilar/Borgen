@@ -234,9 +234,12 @@ export async function acceptAppraisal(wallet: Address, id: string) {
   return request;
 }
 
-// Re-values an asset that already has a collateral token on chain.
-// MVP limitation: this updates the chain only; a full implementation would
-// create and sign a new Neuro valuation contract first.
+// Re-values an asset that already has a collateral token on chain. A new
+// value is only accepted with its own signed contract, so this goes through
+// Neuro the same way the first valuation did.
+// MVP limitation: the owner's signature is applied here with the sandbox
+// account. A production version would have the owner sign with their own
+// Neuro ID before the value changes.
 export async function revalueAppraisal(wallet: Address, id: string, valuationInput: unknown) {
   const appraiser = await requireUser(wallet, "appraiser");
   const request = await requireRequest(id);
@@ -246,7 +249,36 @@ export async function revalueAppraisal(wallet: Address, id: string, valuationInp
   }
 
   const valuation = requireAmount(valuationInput, "valuation");
-  const txHash = await updateCollateralValuation(BigInt(request.tokenId), BigInt(valuation));
+
+  const borrower = await UserModel.findById(request.borrower);
+  if (!borrower?.neuroLegalId || !appraiser.neuroLegalId) {
+    throw new AppraisalError("Both parties need a Neuro identity", 422);
+  }
+
+  const templateId = process.env.NEURO_APPRAISAL_TEMPLATE_ID;
+  if (!templateId) throw new Error("NEURO_APPRAISAL_TEMPLATE_ID is not set");
+
+  const contract = await createContract(
+    "appraiser",
+    templateId,
+    [
+      { role: "Appraiser", legalId: appraiser.neuroLegalId },
+      { role: "Owner", legalId: borrower.neuroLegalId },
+    ],
+    [
+      { name: "AssetTitle", value: request.asset?.title ?? "" },
+      { name: "SerialNumber", value: request.asset?.serialNumber ?? "" },
+      { name: "Valuation", value: valuation },
+      { name: "Currency", value: "mUSD" },
+      { name: "OwnerWallet", value: borrower.walletAddress },
+    ],
+  );
+
+  await signContract("appraiser", contract.id, "Appraiser");
+  await signContract("borrower", contract.id, "Owner");
+  await waitForState("borrower", contract.id, ["Signed"]);
+
+  const txHash = await updateCollateralValuation(BigInt(request.tokenId), BigInt(valuation), contract.id);
 
   request.set({ valuation });
   await request.save();
@@ -257,7 +289,7 @@ export async function revalueAppraisal(wallet: Address, id: string, valuationInp
     wallet: appraiser.walletAddress,
     tokenId: request.tokenId,
     txHash,
-    metadata: { requestId: request._id.toString(), valuation },
+    metadata: { requestId: request._id.toString(), neuroContractId: contract.id, valuation },
   });
 
   return request;

@@ -13,17 +13,22 @@ import { baseSepolia } from "viem/chains";
 
 /**
  * Blockchain access for the relayer.
- * The relayer wallet holds MINTER_ROLE on CollateralNFT and pays gas for mints.
+ * The relayer wallet mints collateral, updates valuations and approves the
+ * wallets that may hold collateral, and pays the gas for all three. On a
+ * production deployment these would be three separate keys.
  */
 
 // Only the functions, events and custom errors the backend uses.
 // A minimal ABI keeps the backend independent of Foundry build output.
 export const collateralNftAbi = parseAbi([
-  "function mint(address to, string neuroContractId, uint256 valuation) returns (uint256)",
-  "function updateValuation(uint256 tokenId, uint256 newValuation)",
+  "function mint(address to, string neuroContractId, uint256 valuation, uint16 assetClass) returns (uint256)",
+  "function updateValuation(uint256 tokenId, uint256 newValuation, string neuroContractId)",
   "function ownerOf(uint256 tokenId) view returns (address)",
-  "event AssetMinted(uint256 indexed tokenId, address indexed owner, string neuroContractId, uint256 valuation)",
+  "function isTransferAllowed(address account) view returns (bool)",
+  "function setTransferAllowed(address account, bool allowed)",
+  "event AssetMinted(uint256 indexed tokenId, address indexed owner, string neuroContractId, uint256 valuation, uint16 assetClass)",
   "error NeuroContractAlreadyUsed(string neuroContractId)",
+  "error RecipientNotAllowed(address recipient)",
   "error ZeroValuation()",
   "error AccessControlUnauthorizedAccount(address account, bytes32 neededRole)",
   "error ERC721NonexistentToken(uint256 tokenId)",
@@ -59,12 +64,46 @@ function getClients() {
 
 export type MintResult = { tokenId: bigint; txHash: Hash };
 
+// The app does not sort assets into kinds yet, so every token uses the one
+// class the pool has terms for.
+const GENERAL_ASSET_CLASS = 0;
+
+// Lets a wallet hold collateral tokens. Does nothing if it already can.
+export async function allowCollateralHolder(wallet: Address): Promise<void> {
+  const { account, publicClient, walletClient, nftAddress } = getClients();
+
+  const allowed = await publicClient.readContract({
+    address: nftAddress,
+    abi: collateralNftAbi,
+    functionName: "isTransferAllowed",
+    args: [wallet],
+  });
+  if (allowed) return;
+
+  const { request } = await publicClient.simulateContract({
+    account,
+    address: nftAddress,
+    abi: collateralNftAbi,
+    functionName: "setTransferAllowed",
+    args: [wallet, true],
+  });
+  const txHash = await walletClient.writeContract(request);
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+  if (receipt.status !== "success") {
+    throw new Error(`setTransferAllowed reverted: ${txHash}`);
+  }
+}
+
 export async function mintCollateral(
   to: Address,
   neuroContractId: string,
   valuation: bigint,
 ): Promise<MintResult> {
   const { account, publicClient, walletClient, nftAddress } = getClients();
+
+  // The token refuses to land on a wallet that has not been approved.
+  await allowCollateralHolder(to);
 
   // Simulate first: if the contract would revert (missing role, reused
   // Neuro contract, zero valuation), we fail here without spending gas.
@@ -73,7 +112,7 @@ export async function mintCollateral(
     address: nftAddress,
     abi: collateralNftAbi,
     functionName: "mint",
-    args: [to, neuroContractId, valuation],
+    args: [to, neuroContractId, valuation, GENERAL_ASSET_CLASS],
   });
 
   const txHash = await walletClient.writeContract(request);
@@ -101,7 +140,10 @@ export const lendingPoolEvents = parseAbi([
   "event Withdrawn(address indexed lender, uint256 amount, uint256 shares)",
   "event Borrowed(uint256 indexed tokenId, address indexed borrower, uint256 amount, uint64 dueAt)",
   "event Repaid(uint256 indexed tokenId, address indexed borrower, uint256 debt)",
-  "event Liquidated(uint256 indexed tokenId, address indexed liquidator, uint256 debt)",
+  "event PartiallyRepaid(uint256 indexed tokenId, address indexed borrower, uint256 amount, uint256 remainingDebt)",
+  "event Renewed(uint256 indexed tokenId, address indexed borrower, uint256 interestPaid, uint64 dueAt)",
+  "event AuctionStarted(uint256 indexed tokenId, address indexed keeper, uint256 startPrice, uint256 floorPrice, uint64 endsAt)",
+  "event AuctionSettled(uint256 indexed tokenId, address indexed buyer, uint256 price, uint256 debtRepaid, uint256 borrowerSurplus, uint256 reserveUsed, uint256 lenderLoss)",
 ]);
 
 // Current holder of a collateral token.
@@ -152,10 +194,12 @@ export async function getPoolLogs(fromBlock: bigint, toBlock: bigint) {
 
 export type PoolLog = Awaited<ReturnType<typeof getPoolLogs>>[number];
 
-// Updates the appraised value of an existing collateral token.
+// Updates the appraised value of an existing collateral token. The contract
+// only accepts a new value together with a signed contract it has not seen.
 export async function updateCollateralValuation(
   tokenId: bigint,
   valuation: bigint,
+  neuroContractId: string,
 ): Promise<Hash> {
   const { account, publicClient, walletClient, nftAddress } = getClients();
 
@@ -164,7 +208,7 @@ export async function updateCollateralValuation(
     address: nftAddress,
     abi: collateralNftAbi,
     functionName: "updateValuation",
-    args: [tokenId, valuation],
+    args: [tokenId, valuation, neuroContractId],
   });
 
   const txHash = await walletClient.writeContract(request);
