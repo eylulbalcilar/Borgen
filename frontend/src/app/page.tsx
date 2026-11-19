@@ -31,7 +31,7 @@ const STEPS = [
   {
     num: "05",
     title: "Repay",
-    body: "Principal plus interest unlocks the token. If debt passes 80% of current value or the term lapses, anyone may repay the debt and take the collateral.",
+    body: "Principal plus interest unlocks the token, in one payment or several, and the term can be renewed. If debt passes 80% of current value or the term lapses, the asset goes to a falling-price sale that repays the debt and returns the rest to the owner.",
   },
 ];
 
@@ -78,7 +78,7 @@ const CONTRACTS = [
   },
   {
     name: "LendingPool",
-    desc: "Shared lending pool, mUSD accounting, interest accrual and liquidation",
+    desc: "Shared lending pool, mUSD accounting, interest accrual and liquidation sales",
     address: ADDRESSES.lendingPool,
   },
   { name: "mUSD", desc: "Settlement stablecoin, 6 decimals", address: ADDRESSES.stablecoin },
