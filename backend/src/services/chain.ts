@@ -132,6 +132,11 @@ export async function getLatestBlock(): Promise<bigint> {
   return getClients().publicClient.getBlockNumber();
 }
 
+export async function getBlockTime(blockNumber: bigint): Promise<Date> {
+  const block = await getClients().publicClient.getBlock({ blockNumber });
+  return new Date(Number(block.timestamp) * 1000);
+}
+
 // Returns decoded LendingPool events in an inclusive block range.
 export async function getPoolLogs(fromBlock: bigint, toBlock: bigint) {
   const { publicClient } = getClients();

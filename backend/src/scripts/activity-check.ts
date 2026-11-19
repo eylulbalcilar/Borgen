@@ -12,7 +12,7 @@ const state = await SyncStateModel.findOne({ key: "lending-pool" });
 console.log("last indexed block:", state?.lastBlock);
 
 const events = await ActivityModel.find({ eventId: { $exists: true } })
-  .sort({ createdAt: -1 })
+  .sort({ occurredAt: -1 })
   .limit(5);
 
 for (const e of events) {

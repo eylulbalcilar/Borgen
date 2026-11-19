@@ -1,16 +1,21 @@
 import { ActivityModel, type ActivityType } from "../models/Activity.js";
 import { SyncStateModel } from "../models/SyncState.js";
 import { UserModel } from "../models/User.js";
-import { getLatestBlock, getPoolLogs, type PoolLog } from "./chain.js";
+import { getBlockTime, getLatestBlock, getPoolLogs, type PoolLog } from "./chain.js";
 
 /**
  * Background indexer: reads LendingPool events and stores them as Activity.
- * Progress is saved per chunk, so a restart resumes where it stopped.
+ * Progress is saved per batch of chunks, so a restart resumes where it stopped.
  * Each event has a unique eventId (txHash:logIndex), so reprocessing is harmless.
  */
 
 const SYNC_KEY = "lending-pool";
-const CHUNK_SIZE = 2000n; // public RPCs reject very wide getLogs ranges
+// sepolia.base.org rejects getLogs ranges wider than 200 blocks.
+const CHUNK_SIZE = 200n;
+// Chunks fetched side by side while catching up. The public RPC starts
+// answering 429 somewhere between 25 and 50 parallel requests, and the same
+// allowance has to serve the relayer, so stay well below it.
+const CATCH_UP_CONCURRENCY = 8;
 const POLL_INTERVAL_MS = 15_000;
 
 type ActivityInput = {
@@ -20,13 +25,27 @@ type ActivityInput = {
   eventId: string;
   tokenId?: string;
   metadata: Record<string, string>;
+  occurredAt?: Date;
 };
 
+// Dates an event by its block, not by when it was read: after a long catch-up
+// those can be months apart. The node sends the block time with every log.
+// Asking for the block instead fails once the node has pruned it.
+export async function eventTime(log: PoolLog): Promise<Date | undefined> {
+  if (log.blockTimestamp != null) return new Date(Number(log.blockTimestamp) * 1000);
+
+  // Older nodes leave the field out. If the block is gone as well, the record
+  // is dated when it is written, which is better than stalling the indexer.
+  return getBlockTime(log.blockNumber).catch(() => undefined);
+}
+
 // Maps a decoded event to the fields we store.
-function toActivity(log: PoolLog): ActivityInput {
+function toActivity(log: PoolLog, occurredAt: Date | undefined): ActivityInput {
   const base = {
     txHash: log.transactionHash,
     eventId: `${log.transactionHash}:${log.logIndex}`,
+    // Left out when unknown so the schema default applies.
+    ...(occurredAt && { occurredAt }),
   };
   const block = log.blockNumber.toString();
 
@@ -69,7 +88,9 @@ function toActivity(log: PoolLog): ActivityInput {
 async function saveLogs(logs: PoolLog[]) {
   if (logs.length === 0) return;
 
-  const activities = logs.map(toActivity);
+  const activities = await Promise.all(
+    logs.map(async (log) => toActivity(log, await eventTime(log))),
+  );
 
   // Link events to registered users when the wallet is known.
   const wallets = [...new Set(activities.map((a) => a.wallet!.toLowerCase()))];
@@ -101,12 +122,21 @@ export async function syncOnce(): Promise<number> {
   let saved = 0;
 
   while (from <= latest) {
-    const to = from + CHUNK_SIZE - 1n < latest ? from + CHUNK_SIZE - 1n : latest;
-    const logs = await getPoolLogs(from, to);
+    const ranges: [bigint, bigint][] = [];
+    for (let start = from; start <= latest && ranges.length < CATCH_UP_CONCURRENCY; ) {
+      const end = start + CHUNK_SIZE - 1n < latest ? start + CHUNK_SIZE - 1n : latest;
+      ranges.push([start, end]);
+      start = end + 1n;
+    }
+
+    // If any chunk fails the whole batch is retried on the next run, so
+    // progress never moves past a range that was not read.
+    const logs = (await Promise.all(ranges.map(([start, end]) => getPoolLogs(start, end)))).flat();
     await saveLogs(logs);
     saved += logs.length;
 
-    // Save progress after every chunk.
+    // Save progress after every batch.
+    const to = ranges[ranges.length - 1]![1];
     await SyncStateModel.updateOne(
       { key: SYNC_KEY },
       { $set: { lastBlock: Number(to) } },
