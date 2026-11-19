@@ -1,7 +1,7 @@
 import { ActivityModel, type ActivityType } from "../models/Activity.js";
 import { SyncStateModel } from "../models/SyncState.js";
 import { UserModel } from "../models/User.js";
-import { getLatestBlock, getPoolLogs, type PoolLog } from "./chain.js";
+import { getBlockTime, getLatestBlock, getPoolLogs, type PoolLog } from "./chain.js";
 
 /**
  * Background indexer: reads LendingPool events and stores them as Activity.
@@ -25,13 +25,27 @@ type ActivityInput = {
   eventId: string;
   tokenId?: string;
   metadata: Record<string, string>;
+  occurredAt?: Date;
 };
 
+// Dates an event by its block, not by when it was read: after a long catch-up
+// those can be months apart. The node sends the block time with every log.
+// Asking for the block instead fails once the node has pruned it.
+export async function eventTime(log: PoolLog): Promise<Date | undefined> {
+  if (log.blockTimestamp != null) return new Date(Number(log.blockTimestamp) * 1000);
+
+  // Older nodes leave the field out. If the block is gone as well, the record
+  // is dated when it is written, which is better than stalling the indexer.
+  return getBlockTime(log.blockNumber).catch(() => undefined);
+}
+
 // Maps a decoded event to the fields we store.
-function toActivity(log: PoolLog): ActivityInput {
+function toActivity(log: PoolLog, occurredAt: Date | undefined): ActivityInput {
   const base = {
     txHash: log.transactionHash,
     eventId: `${log.transactionHash}:${log.logIndex}`,
+    // Left out when unknown so the schema default applies.
+    ...(occurredAt && { occurredAt }),
   };
   const block = log.blockNumber.toString();
 
@@ -74,7 +88,9 @@ function toActivity(log: PoolLog): ActivityInput {
 async function saveLogs(logs: PoolLog[]) {
   if (logs.length === 0) return;
 
-  const activities = logs.map(toActivity);
+  const activities = await Promise.all(
+    logs.map(async (log) => toActivity(log, await eventTime(log))),
+  );
 
   // Link events to registered users when the wallet is known.
   const wallets = [...new Set(activities.map((a) => a.wallet!.toLowerCase()))];

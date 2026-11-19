@@ -24,6 +24,8 @@ export type Activity = {
   txHash?: string;
   // Amounts are integer strings in the smallest unit; other keys vary by type.
   metadata?: Record<string, string>;
+  // When the action happened; for chain events, the time of the block.
+  occurredAt?: string;
   createdAt: string;
 };
 

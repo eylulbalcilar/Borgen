@@ -25,6 +25,9 @@ const activitySchema = new Schema(
     metadata: { type: Schema.Types.Mixed },
     // "txHash:logIndex" for events read from the chain; prevents duplicates.
     eventId: { type: String, unique: true, sparse: true },
+    // When the action happened. For a chain event this is the block time,
+    // which can be long before createdAt if the indexer was catching up.
+    occurredAt: { type: Date, default: Date.now, index: true },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );

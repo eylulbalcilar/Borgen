@@ -75,6 +75,8 @@ export function ActivityFeed() {
       <ul>
         {(activity.data ?? []).map((item) => {
           const amount = amountOf(item);
+          // Records written before occurredAt existed only carry createdAt.
+          const when = item.occurredAt ?? item.createdAt;
           return (
             <li
               key={item._id}
@@ -89,10 +91,10 @@ export function ActivityFeed() {
                 {amount ?? ""}
               </span>
               <time
-                dateTime={item.createdAt}
+                dateTime={when}
                 className="col-start-2 font-mono text-xs text-dim sm:col-start-4 sm:text-right"
               >
-                {new Date(item.createdAt).toLocaleString("en-GB", {
+                {new Date(when).toLocaleString("en-GB", {
                   day: "2-digit",
                   month: "short",
                   hour: "2-digit",
