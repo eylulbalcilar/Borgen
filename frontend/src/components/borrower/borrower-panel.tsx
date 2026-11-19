@@ -87,6 +87,7 @@ export function BorrowerPanel() {
                 item={collateral.items[index]!}
                 title={item.asset.title}
                 allowance={pool.allowance}
+                available={pool.available}
                 wallet={address}
                 mintedTo={item.mintedTo}
                 onSuccess={refresh}

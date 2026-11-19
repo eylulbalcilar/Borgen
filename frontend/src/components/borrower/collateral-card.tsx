@@ -15,6 +15,8 @@ type Props = {
   item: Collateral;
   title: string;
   allowance: bigint;
+  // Idle money in the pool; undefined until it has been read.
+  available: bigint | undefined;
   wallet: string | undefined;
   mintedTo: string | undefined;
   onSuccess: () => void;
@@ -22,7 +24,7 @@ type Props = {
 
 type Action = "approve" | "borrow" | "repay" | "payDown" | "renew";
 
-export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuccess }: Props) {
+export function CollateralCard({ item, title, allowance, available, wallet, mintedTo, onSuccess }: Props) {
   const [input, setInput] = useState("");
   // Tracks which leg is in flight, so an approval does not wipe the amount the
   // borrower already typed for the borrow that follows it.
@@ -50,6 +52,10 @@ export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuc
 
   const amount = parseAmount(input);
   const exceedsLtv = !item.hasLoan && amount !== undefined && amount > item.maxBorrow;
+  // The pool can only lend what it holds. Checked here because a wallet turns
+  // the revert into an unrelated gas limit error.
+  const exceedsLiquidity =
+    !item.hasLoan && !exceedsLtv && amount !== undefined && available !== undefined && amount > available;
   // Paying the whole debt goes through repay, which also returns the token.
   const coversDebt = item.hasLoan && amount !== undefined && amount >= item.debt;
   const needsTokenApproval = !item.isApproved && !item.isEscrowed;
@@ -59,7 +65,7 @@ export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuc
   const usage = item.maxBorrow > 0n ? Number((item.debt * 10_000n) / item.maxBorrow) / 100 : 0;
 
   async function borrow() {
-    if (!amount || exceedsLtv) return;
+    if (!amount || exceedsLtv || exceedsLiquidity) return;
     tx.clear();
 
     // The pool pulls the token, so it must be approved first.
@@ -265,10 +271,19 @@ export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuc
               unit={ASSET_SYMBOL}
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              onMax={() => setInput(toAmountInput(item.maxBorrow - item.debt))}
-              aria-invalid={exceedsLtv || undefined}
+              onMax={() => {
+                // The most that can actually be drawn: the loan limit, or what
+                // the pool holds if that is less.
+                const limit = item.maxBorrow - item.debt;
+                setInput(toAmountInput(available !== undefined && available < limit ? available : limit));
+              }}
+              aria-invalid={exceedsLtv || exceedsLiquidity || undefined}
             />
-            <PillButton onPress={borrow} isDisabled={!amount || exceedsLtv} isPending={tx.isBusy}>
+            <PillButton
+              onPress={borrow}
+              isDisabled={!amount || exceedsLtv || exceedsLiquidity}
+              isPending={tx.isBusy}
+            >
               {tx.isBusy ? busyLabel : needsTokenApproval ? "Approve token" : "Borrow"}
             </PillButton>
           </div>
@@ -277,6 +292,13 @@ export function CollateralCard({ item, title, allowance, wallet, mintedTo, onSuc
         {exceedsLtv && (
           <p role="alert" className="font-mono text-[11px] text-danger-text">
             Maximum loan for this asset is {formatAmount(item.maxBorrow)}.
+          </p>
+        )}
+        {exceedsLiquidity && (
+          <p role="alert" className="font-mono text-[11px] text-danger-text">
+            {available === 0n
+              ? "The pool has nothing to lend yet. A lender has to deposit first."
+              : `The pool can lend ${formatAmount(available ?? 0n)} right now.`}
           </p>
         )}
         {coversDebt && (
