@@ -5,12 +5,17 @@ import { getLatestBlock, getPoolLogs, type PoolLog } from "./chain.js";
 
 /**
  * Background indexer: reads LendingPool events and stores them as Activity.
- * Progress is saved per chunk, so a restart resumes where it stopped.
+ * Progress is saved per batch of chunks, so a restart resumes where it stopped.
  * Each event has a unique eventId (txHash:logIndex), so reprocessing is harmless.
  */
 
 const SYNC_KEY = "lending-pool";
-const CHUNK_SIZE = 2000n; // public RPCs reject very wide getLogs ranges
+// sepolia.base.org rejects getLogs ranges wider than 200 blocks.
+const CHUNK_SIZE = 200n;
+// Chunks fetched side by side while catching up. The public RPC starts
+// answering 429 somewhere between 25 and 50 parallel requests, and the same
+// allowance has to serve the relayer, so stay well below it.
+const CATCH_UP_CONCURRENCY = 8;
 const POLL_INTERVAL_MS = 15_000;
 
 type ActivityInput = {
@@ -101,12 +106,21 @@ export async function syncOnce(): Promise<number> {
   let saved = 0;
 
   while (from <= latest) {
-    const to = from + CHUNK_SIZE - 1n < latest ? from + CHUNK_SIZE - 1n : latest;
-    const logs = await getPoolLogs(from, to);
+    const ranges: [bigint, bigint][] = [];
+    for (let start = from; start <= latest && ranges.length < CATCH_UP_CONCURRENCY; ) {
+      const end = start + CHUNK_SIZE - 1n < latest ? start + CHUNK_SIZE - 1n : latest;
+      ranges.push([start, end]);
+      start = end + 1n;
+    }
+
+    // If any chunk fails the whole batch is retried on the next run, so
+    // progress never moves past a range that was not read.
+    const logs = (await Promise.all(ranges.map(([start, end]) => getPoolLogs(start, end)))).flat();
     await saveLogs(logs);
     saved += logs.length;
 
-    // Save progress after every chunk.
+    // Save progress after every batch.
+    const to = ranges[ranges.length - 1]![1];
     await SyncStateModel.updateOne(
       { key: SYNC_KEY },
       { $set: { lastBlock: Number(to) } },
